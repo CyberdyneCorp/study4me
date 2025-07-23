@@ -1,0 +1,690 @@
+[
+  {
+    "id": 1,
+    "title": "Project Setup and Infrastructure Configuration",
+    "status": "pending",
+    "details": "Set up the monorepo structure with separate frontend (Svelte) and backend (FastAPI) directories. Configure Docker containers for PostgreSQL, Redis, and the application services. Initialize Git repository with proper .gitignore files. Set up VS Code workspace with recommended extensions for Svelte and Python development. Create initial package.json for frontend and requirements.txt for backend. Configure environment variables template and Docker Compose for local development. Set up basic CI/CD pipeline with GitHub Actions for linting and testing.",
+    "priority": "high",
+    "subtasks": [
+      {
+        "id": 1,
+        "title": "Initialize Monorepo Structure and Git Repository",
+        "status": "pending",
+        "details": "Create root directory with frontend/ (Svelte) and backend/ (FastAPI) subdirectories. Initialize Git repository with git init. Create comprehensive .gitignore files for Python, Node.js, Docker, and IDE-specific files. Set up initial README.md with project overview and setup instructions. Create basic directory structure including src/, tests/, docs/, and config/ folders in both frontend and backend directories.",
+        "description": "Create the foundational project structure with separate directories for frontend and backend components, initialize Git repository with proper configuration and gitignore files.",
+        "dependencies": [],
+        "testStrategy": "Verify directory structure is created correctly, Git repository is initialized, and .gitignore files properly exclude intended files and directories."
+      },
+      {
+        "id": 2,
+        "title": "Configure Package Management and Dependencies",
+        "status": "pending",
+        "details": "Create package.json in frontend/ directory with Svelte, Vite, TypeScript, and essential development dependencies. Initialize npm project with proper scripts for dev, build, and test. Create requirements.txt in backend/ directory with FastAPI, uvicorn, SQLAlchemy, Redis client, pytest, and other core dependencies. Set up virtual environment configuration and development dependencies in requirements-dev.txt.",
+        "description": "Set up package.json for the Svelte frontend and requirements.txt for the FastAPI backend with initial dependencies and development tools.",
+        "dependencies": [
+          1
+        ],
+        "testStrategy": "Run npm install in frontend directory and pip install -r requirements.txt in backend directory to verify all dependencies resolve correctly without conflicts."
+      },
+      {
+        "id": 3,
+        "title": "Create Docker Configuration and Compose Setup",
+        "status": "pending",
+        "details": "Create Dockerfile for backend FastAPI service with Python base image, dependency installation, and proper entrypoint. Create Dockerfile for frontend Svelte service with Node.js base image and build configuration. Set up docker-compose.yml with services for PostgreSQL (with persistent volume), Redis, backend API, and frontend development server. Configure proper networking, port mapping, and environment variable passing between containers.",
+        "description": "Configure Docker containers for PostgreSQL, Redis, and application services with Docker Compose for local development environment.",
+        "dependencies": [
+          2
+        ],
+        "testStrategy": "Run docker-compose up to verify all services start successfully, containers can communicate with each other, and databases are accessible from application services."
+      },
+      {
+        "id": 4,
+        "title": "Configure Environment Variables and Development Settings",
+        "status": "pending",
+        "details": "Create .env.template file with all required environment variables including database URLs, Redis connection, API keys placeholders, and development flags. Set up environment-specific configuration files (.env.development, .env.production templates). Configure backend to load environment variables using python-dotenv. Set up frontend environment variable handling for API endpoints and feature flags. Document all environment variables with descriptions and example values.",
+        "description": "Set up environment variable templates and configuration management for different deployment environments with proper security practices.",
+        "dependencies": [
+          3
+        ],
+        "testStrategy": "Verify environment variables are properly loaded in both frontend and backend services, configuration changes take effect after restart, and sensitive variables are not committed to version control."
+      },
+      {
+        "id": 5,
+        "title": "Setup Development Tooling and CI/CD Pipeline",
+        "status": "pending",
+        "details": "Create .vscode/settings.json and .vscode/extensions.json with recommended extensions for Svelte, Python, Docker, and Git. Configure workspace settings for consistent formatting and linting. Set up .github/workflows/ci.yml with jobs for Python linting (flake8, black), JavaScript/TypeScript linting (ESLint, Prettier), running tests for both frontend and backend, and Docker image building. Configure branch protection rules and status checks.",
+        "description": "Configure VS Code workspace, development extensions, and GitHub Actions pipeline for automated linting, testing, and code quality checks.",
+        "dependencies": [
+          4
+        ],
+        "testStrategy": "Open project in VS Code to verify recommended extensions are suggested and workspace settings apply correctly. Create test commits to verify CI/CD pipeline runs successfully and catches linting errors and test failures."
+      }
+    ],
+    "description": "Initialize the development environment with proper project structure, containerization, and core infrastructure components including database, Redis, and development tooling.",
+    "dependencies": [],
+    "testStrategy": "Verify all containers start successfully, database connections work, Redis is accessible, and the development environment can be replicated across different machines. Test CI/CD pipeline with dummy commits."
+  },
+  {
+    "id": 2,
+    "title": "Web3 Authentication System Implementation",
+    "status": "pending",
+    "details": "Integrate Web3Auth and WalletConnect SDKs in the Svelte frontend. Create wallet connection components with proper error handling and loading states. Implement backend endpoints for wallet signature verification and JWT token generation. Set up Web3 provider connections for Base and Arbitrum networks. Create NFT contract interaction logic to verify ownership of Study4Me NFTs. Implement session management with secure JWT tokens. Add wallet disconnection and account switching functionality. Create middleware for protecting authenticated routes.",
+    "priority": "high",
+    "subtasks": [
+      {
+        "id": 1,
+        "title": "Set up Web3 Provider Connections and Network Configuration",
+        "status": "pending",
+        "details": "Install and configure ethers.js or web3.js library. Set up provider instances for Base (chain ID: 8453) and Arbitrum (chain ID: 42161) networks with their respective RPC URLs. Create network configuration objects with chain metadata. Implement network switching functionality and error handling for unsupported networks. Create utility functions for provider management and network detection.",
+        "description": "Configure Web3 provider connections for Base and Arbitrum networks with proper RPC endpoints, chain IDs, and network switching capabilities.",
+        "dependencies": [],
+        "testStrategy": "Test network switching between Base and Arbitrum. Verify RPC connectivity and proper chain ID detection. Mock provider responses for unit testing."
+      },
+      {
+        "id": 2,
+        "title": "Integrate Web3Auth and WalletConnect SDKs",
+        "status": "pending",
+        "details": "Install @web3auth/modal and @walletconnect/web3-provider packages. Configure Web3Auth with appropriate client ID, chain config, and UI settings. Set up WalletConnect with project ID and supported chains (Base, Arbitrum). Create initialization functions that run on app startup. Implement proper error handling for SDK initialization failures and network configuration issues.",
+        "description": "Install and configure Web3Auth and WalletConnect SDKs in the Svelte frontend with proper initialization and configuration.",
+        "dependencies": [
+          1
+        ],
+        "testStrategy": "Test SDK initialization with valid and invalid configurations. Verify proper error handling when SDKs fail to initialize."
+      },
+      {
+        "id": 3,
+        "title": "Create Wallet Connection Components with UI States",
+        "status": "pending",
+        "details": "Create WalletConnect.svelte component with connect/disconnect buttons. Implement loading states during connection attempts. Add error display for connection failures, unsupported wallets, and network issues. Create AccountInfo.svelte component showing connected wallet address and network. Implement account switching detection and UI updates. Add wallet selection modal supporting MetaMask, WalletConnect, and Web3Auth options. Style components with consistent UI/UX patterns.",
+        "description": "Build Svelte components for wallet connection, disconnection, and account management with proper loading states and error handling.",
+        "dependencies": [
+          2
+        ],
+        "testStrategy": "Test wallet connection flow with MetaMask, WalletConnect, and Web3Auth. Verify loading states and error messages display correctly. Test account switching scenarios."
+      },
+      {
+        "id": 4,
+        "title": "Implement Backend Authentication Endpoints",
+        "status": "pending",
+        "details": "Create POST /auth/challenge endpoint to generate random nonce for signature. Implement POST /auth/verify endpoint that verifies wallet signature using ethers.js recover function. Generate JWT tokens with wallet address, network, and expiration claims. Create middleware for JWT token validation on protected routes. Implement token refresh mechanism with refresh tokens. Add POST /auth/logout endpoint for session cleanup. Store active sessions in Redis or database with proper cleanup.",
+        "description": "Create backend API endpoints for wallet signature verification, JWT token generation, and session management.",
+        "dependencies": [
+          1
+        ],
+        "testStrategy": "Test signature verification with valid and invalid signatures. Verify JWT token generation and validation. Test session persistence and cleanup mechanisms."
+      },
+      {
+        "id": 5,
+        "title": "Implement NFT Ownership Verification System",
+        "status": "pending",
+        "details": "Create NFT contract ABI and address configuration for Study4Me NFTs on both networks. Implement balanceOf and tokenOfOwnerByIndex contract calls using ethers.js. Create ownership verification function that checks NFT balance > 0 for connected wallet. Add caching layer (Redis) for NFT ownership results with 5-minute TTL. Implement fallback mechanisms for RPC failures. Create middleware that verifies NFT ownership before granting access to protected routes. Add support for multiple NFT contract addresses if needed.",
+        "description": "Create NFT contract interaction logic to verify Study4Me NFT ownership on Base and Arbitrum networks with caching and error handling.",
+        "dependencies": [
+          1,
+          4
+        ],
+        "testStrategy": "Test NFT ownership verification with wallets that own and don't own Study4Me NFTs. Verify caching mechanisms work correctly. Mock blockchain responses for unit testing ownership checks."
+      }
+    ],
+    "description": "Implement wallet-based authentication using Web3Auth and WalletConnect, with NFT ownership verification on Base and Arbitrum networks.",
+    "dependencies": [
+      1
+    ],
+    "testStrategy": "Test wallet connection flow with MetaMask and other popular wallets. Verify NFT ownership checks work correctly on both networks. Test session persistence and token refresh mechanisms. Mock blockchain responses for unit testing."
+  },
+  {
+    "id": 3,
+    "title": "Database Schema and User Management System",
+    "status": "pending",
+    "details": "Create PostgreSQL database schema with tables for users (wallet addresses, NFT status, credits), study_topics, content_sources, ingestion_jobs, queries, and analytics. Implement proper foreign key relationships and indexes for performance. Create database migration system using Alembic. Implement user CRUD operations with credit tracking and expiry management. Add soft delete functionality for GDPR compliance. Create database connection pooling and transaction management. Implement data validation and sanitization at the database layer.",
+    "priority": "high",
+    "subtasks": [
+      {
+        "id": 1,
+        "title": "Design and Create Core Database Schema",
+        "status": "pending",
+        "details": "Create SQL schema files defining tables with appropriate data types (UUID for IDs, JSONB for flexible data, timestamps with timezone). Define primary keys, foreign key relationships between tables, check constraints for data validation, and NOT NULL constraints. Include wallet_address field in users table, NFT status tracking, credits with expiry dates. Design study_topics with hierarchical relationships, content_sources with metadata fields, and analytics tables for query tracking and performance metrics.",
+        "description": "Design and implement the foundational PostgreSQL database schema including all core tables: users, study_topics, content_sources, ingestion_jobs, queries, and analytics with proper data types, constraints, and relationships.",
+        "dependencies": [],
+        "testStrategy": "Write unit tests for schema creation, validate all table structures, test constraint enforcement, and verify foreign key relationships work correctly."
+      },
+      {
+        "id": 2,
+        "title": "Implement Database Migration System with Alembic",
+        "status": "pending",
+        "details": "Install and configure Alembic with PostgreSQL connection settings. Create initial migration script that generates all tables from subtask 1. Set up migration environment with proper naming conventions and version control. Create migration templates for future schema changes. Implement rollback capabilities and migration validation. Configure Alembic to work with different environments (dev, staging, production).",
+        "description": "Set up Alembic migration framework for PostgreSQL schema versioning and implement initial migration scripts for all database tables and indexes.",
+        "dependencies": [
+          1
+        ],
+        "testStrategy": "Test migration scripts on clean databases, verify rollback functionality, test migration ordering and dependencies, and validate schema consistency across environments."
+      },
+      {
+        "id": 3,
+        "title": "Create Database Indexes and Performance Optimization",
+        "status": "pending",
+        "details": "Analyze expected query patterns and create indexes on frequently queried columns: wallet_address in users table, topic_id in study_topics, source_url in content_sources, user_id in queries table. Create composite indexes for multi-column queries like (user_id, created_at) for analytics. Implement partial indexes for soft-deleted records and active users. Add JSONB indexes for metadata fields using GIN indexes. Create unique constraints where needed and optimize for both read and write performance.",
+        "description": "Design and implement comprehensive indexing strategy for all tables to optimize query performance, including composite indexes for common query patterns and partial indexes where appropriate.",
+        "dependencies": [
+          2
+        ],
+        "testStrategy": "Performance test queries before and after index creation, verify index usage with EXPLAIN ANALYZE, test index maintenance overhead, and validate query optimization improvements."
+      },
+      {
+        "id": 4,
+        "title": "Implement Database Connection Management and Transaction Handling",
+        "status": "pending",
+        "details": "Configure connection pooling using SQLAlchemy with appropriate pool size, overflow settings, and connection recycling. Implement transaction context managers for atomic operations. Set up connection health checks and automatic reconnection handling. Configure connection timeouts and retry logic. Implement database session management with proper cleanup. Add connection monitoring and logging for debugging. Set up read/write connection splitting if needed for scaling.",
+        "description": "Set up database connection pooling, transaction management, and connection lifecycle management for optimal database performance and reliability.",
+        "dependencies": [
+          3
+        ],
+        "testStrategy": "Test connection pool behavior under load, verify transaction isolation levels, test connection recovery after database restarts, and validate concurrent access patterns."
+      },
+      {
+        "id": 5,
+        "title": "Implement User CRUD Operations and Data Management Features",
+        "status": "pending",
+        "details": "Implement user creation, read, update, and delete operations using SQLAlchemy ORM. Create credit management system with automatic expiry tracking and balance calculations. Implement soft delete functionality by adding deleted_at timestamp field and filtering deleted records in queries. Add data validation functions for wallet addresses, email formats, and business rules. Create user authentication helpers and session management. Implement GDPR compliance features including data export and anonymization. Add audit logging for user data changes.",
+        "description": "Create comprehensive user management system with CRUD operations, credit tracking with expiry management, soft delete functionality for GDPR compliance, and data validation at the database layer.",
+        "dependencies": [
+          4
+        ],
+        "testStrategy": "Write comprehensive tests for all CRUD operations, test credit expiry logic with time-based scenarios, verify soft delete functionality doesn't expose deleted data, test data validation rules, and validate GDPR compliance features."
+      }
+    ],
+    "description": "Design and implement the database schema for users, study topics, content sources, and analytics tracking with proper indexing and relationships.",
+    "dependencies": [
+      1
+    ],
+    "testStrategy": "Write comprehensive database tests covering all CRUD operations, constraint validations, and migration scripts. Test concurrent access patterns and transaction isolation. Verify data integrity and foreign key constraints."
+  },
+  {
+    "id": 4,
+    "title": "Content Ingestion Pipeline Development",
+    "status": "pending",
+    "details": "Implement YouTube transcript extraction using OpenAI Whisper API with rate limiting and caching. Create PDF parsing service using Docling with support for various document formats. Implement image OCR using Tesseract with preprocessing for better accuracy. Build web scraping service using Trafilatura with content cleaning and extraction. Create asynchronous job queue using Redis for processing ingestion tasks. Implement progress tracking and status updates for long-running jobs. Add retry logic with exponential backoff for failed ingestions. Create content validation and format checking before processing.",
+    "priority": "medium",
+    "subtasks": [
+      {
+        "id": 1,
+        "title": "Implement Core Infrastructure and Job Queue System",
+        "status": "pending",
+        "details": "Create Redis connection and job queue using libraries like Celery or RQ. Design database tables for job tracking with fields for job_id, source_type, status, progress, error_messages, and timestamps. Implement REST API endpoints for job submission (/api/ingest) and status checking (/api/jobs/{id}/status). Set up proper logging and monitoring infrastructure. Configure environment variables for Redis connection and other service configurations.",
+        "description": "Set up the foundational infrastructure for the content ingestion pipeline including Redis-based asynchronous job queue, database schema for tracking ingestion jobs, and basic API endpoints for job submission and status monitoring.",
+        "dependencies": [],
+        "testStrategy": "Test job queue creation, job status updates, and API endpoints. Verify Redis connectivity and job persistence across service restarts."
+      },
+      {
+        "id": 2,
+        "title": "Develop YouTube Transcript Extraction Service",
+        "status": "pending",
+        "details": "Integrate OpenAI Whisper API with proper authentication and rate limiting (implement token bucket algorithm). Create YouTube audio extraction using yt-dlp library with format selection for optimal quality. Implement Redis-based caching for processed transcripts using video ID as key. Add audio preprocessing steps like noise reduction and normalization. Handle various YouTube URL formats and private/restricted videos with appropriate error messages. Implement chunking for long videos to stay within API limits.",
+        "description": "Build the YouTube transcript extraction functionality using OpenAI Whisper API with proper rate limiting, caching mechanisms, and audio preprocessing capabilities.",
+        "dependencies": [
+          1
+        ],
+        "testStrategy": "Test with various YouTube URLs including long videos, different formats, and edge cases like private videos. Verify rate limiting behavior and cache effectiveness."
+      },
+      {
+        "id": 3,
+        "title": "Create PDF Processing Service with Docling Integration",
+        "status": "pending",
+        "details": "Integrate Docling library for PDF processing with support for text, tables, and images. Implement file validation to check PDF integrity and format compatibility. Create text extraction with proper formatting preservation including headers, paragraphs, and lists. Add table detection and extraction with structured output. Handle password-protected PDFs with user input capability. Implement metadata extraction including title, author, creation date, and page count. Add support for scanned PDFs by integrating OCR fallback.",
+        "description": "Implement PDF parsing and text extraction service using Docling library with support for various document formats, table extraction, and metadata preservation.",
+        "dependencies": [
+          1
+        ],
+        "testStrategy": "Test with various PDF types including text-based, scanned, password-protected, and documents with complex layouts. Verify table extraction accuracy and metadata retrieval."
+      },
+      {
+        "id": 4,
+        "title": "Build Image OCR Service with Tesseract",
+        "status": "pending",
+        "details": "Install and configure Tesseract OCR with multiple language packs. Implement image preprocessing pipeline including noise reduction, contrast enhancement, deskewing, and resolution optimization using OpenCV or PIL. Create text extraction with confidence scoring and bounding box information. Add support for multiple image formats (PNG, JPEG, TIFF, WebP). Implement language detection and multi-language OCR processing. Create post-processing for text cleaning and formatting. Handle large images by implementing tiling strategy for memory efficiency.",
+        "description": "Develop image text extraction service using Tesseract OCR with image preprocessing, multiple language support, and confidence scoring for extracted text.",
+        "dependencies": [
+          1
+        ],
+        "testStrategy": "Test with various image types, qualities, and languages. Verify preprocessing effectiveness on low-quality images and measure OCR accuracy across different scenarios."
+      },
+      {
+        "id": 5,
+        "title": "Implement Web Scraping Service and Error Handling System",
+        "status": "pending",
+        "details": "Integrate Trafilatura for web scraping with content extraction and cleaning. Implement robots.txt compliance and rate limiting for web requests. Add support for JavaScript-rendered pages using headless browser integration. Create comprehensive error handling system with exponential backoff retry logic for all ingestion services. Implement content validation including format checking, size limits, and quality assessment. Add progress tracking updates for long-running jobs with percentage completion. Create unified response format for all ingestion methods with standardized metadata. Implement cleanup procedures for temporary files and failed jobs.",
+        "description": "Build web content extraction service using Trafilatura with content cleaning, implement comprehensive error handling with retry logic, and create content validation system for all ingestion methods.",
+        "dependencies": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "testStrategy": "Test web scraping with various website types and structures. Verify error handling and retry mechanisms under network failures and API rate limits. Test content validation rules and progress tracking accuracy."
+      }
+    ],
+    "description": "Build the multi-source content ingestion system supporting YouTube transcripts, PDFs, images, and web pages with proper error handling and status tracking.",
+    "dependencies": [
+      1,
+      3
+    ],
+    "testStrategy": "Test each ingestion method with various file types and sources. Verify error handling for corrupted files, network failures, and API rate limits. Test job queue processing under load and failure scenarios. Validate extracted content quality and accuracy."
+  },
+  {
+    "id": 5,
+    "title": "Decentralized Storage Integration",
+    "status": "pending",
+    "details": "Set up IPFS node connection and pinning service with proper error handling. Implement Arweave integration for permanent storage with wallet management. Create content hashing and deduplication logic to avoid storing duplicate content. Build storage service abstraction layer supporting both IPFS and Arweave. Implement content retrieval with fallback mechanisms between storage providers. Add storage status tracking and health monitoring. Create content verification system to ensure data integrity. Implement storage cost estimation and optimization strategies.",
+    "priority": "medium",
+    "subtasks": [
+      {
+        "id": 1,
+        "title": "Set up IPFS Node Connection and Pinning Service",
+        "status": "pending",
+        "details": "Initialize IPFS client connection using js-ipfs or ipfs-http-client. Implement connection pooling and retry logic for network failures. Create pinning service methods for adding content to IPFS with proper error handling for network timeouts, node unavailability, and storage limits. Add configuration management for IPFS node endpoints and authentication credentials.",
+        "description": "Establish connection to IPFS node and implement basic pinning functionality with proper error handling and connection management.",
+        "dependencies": [],
+        "testStrategy": "Test IPFS node connectivity, verify content can be pinned successfully, and validate error handling for various failure scenarios including network disconnection and node unavailability."
+      },
+      {
+        "id": 2,
+        "title": "Implement Arweave Integration with Wallet Management",
+        "status": "pending",
+        "details": "Initialize Arweave client using arweave-js library. Implement wallet management system for storing and retrieving Arweave wallet keys securely. Create methods for uploading data to Arweave with proper transaction signing and fee calculation. Add support for bundled transactions using Bundlr or similar service for cost optimization. Implement transaction status monitoring and confirmation tracking.",
+        "description": "Set up Arweave client integration with wallet management for permanent storage operations and transaction handling.",
+        "dependencies": [],
+        "testStrategy": "Test Arweave wallet creation and management, verify data upload functionality, validate transaction confirmation process, and test cost estimation accuracy."
+      },
+      {
+        "id": 3,
+        "title": "Create Content Hashing and Deduplication System",
+        "status": "pending",
+        "details": "Create content hashing service using SHA-256 or similar algorithm to generate consistent hashes for content. Implement deduplication database to track existing content hashes and their storage locations. Add content fingerprinting for different content types (text, images, videos). Create hash verification system to ensure content integrity during storage and retrieval. Implement content metadata tracking including original filename, content type, and storage timestamps.",
+        "description": "Implement content hashing mechanism with deduplication logic to prevent storing duplicate content across both storage providers.",
+        "dependencies": [
+          1,
+          2
+        ],
+        "testStrategy": "Test hash generation consistency across identical content, verify deduplication prevents duplicate storage, and validate hash-based content retrieval accuracy."
+      },
+      {
+        "id": 4,
+        "title": "Build Storage Service Abstraction Layer",
+        "status": "pending",
+        "details": "Design storage service interface with methods for store, retrieve, delete, and status operations. Implement storage provider factory pattern to instantiate IPFS or Arweave clients based on configuration. Create unified response format for storage operations across both providers. Add storage provider selection logic based on content type, size, and cost considerations. Implement storage metadata management including provider-specific identifiers and access URLs.",
+        "description": "Create unified storage service interface that abstracts IPFS and Arweave operations with consistent API and configuration management.",
+        "dependencies": [
+          1,
+          2,
+          3
+        ],
+        "testStrategy": "Test unified API functionality across both storage providers, verify provider selection logic works correctly, and validate consistent response formats regardless of underlying storage provider."
+      },
+      {
+        "id": 5,
+        "title": "Implement Content Retrieval with Fallback Mechanisms",
+        "status": "pending",
+        "details": "Implement content retrieval methods that attempt primary storage provider first, then fallback to secondary provider on failure. Add storage provider health monitoring with periodic availability checks and response time tracking. Create content verification system that validates retrieved content against stored hashes. Implement caching layer for frequently accessed content to improve performance. Add storage cost tracking and optimization strategies including provider selection based on retrieval frequency and cost analysis.",
+        "description": "Build content retrieval system with automatic fallback between storage providers, health monitoring, and integrity verification.",
+        "dependencies": [
+          4
+        ],
+        "testStrategy": "Test retrieval fallback mechanisms when primary provider is unavailable, verify content integrity validation works correctly, monitor storage costs and performance metrics, and validate caching improves retrieval times."
+      }
+    ],
+    "description": "Implement IPFS and Arweave integration for pinning processed content with hash tracking and retrieval mechanisms.",
+    "dependencies": [
+      4
+    ],
+    "testStrategy": "Test content pinning and retrieval from both IPFS and Arweave. Verify hash consistency and data integrity. Test fallback mechanisms when one storage provider is unavailable. Monitor storage costs and performance metrics."
+  },
+  {
+    "id": 6,
+    "title": "Study Topic Management System",
+    "status": "pending",
+    "details": "Implement Study Topic CRUD operations with user ownership validation. Create topic dashboard showing ingestion status, content sources, and metadata. Build content source management allowing users to add/remove YouTube URLs, PDFs, images, and web links. Implement topic sharing and collaboration features (if specified in future requirements). Add topic categorization and tagging system. Create bulk operations for managing multiple content sources. Implement topic templates and duplication functionality. Add search and filtering capabilities for topics.",
+    "priority": "medium",
+    "subtasks": [
+      {
+        "id": 1,
+        "title": "Implement Study Topic CRUD Operations with User Ownership",
+        "status": "pending",
+        "details": "Design and implement the StudyTopic model with fields for title, description, user_id, created_at, updated_at, and status. Create RESTful API endpoints (POST /topics, GET /topics, GET /topics/:id, PUT /topics/:id, DELETE /topics/:id) with middleware for authentication and ownership validation. Implement database migrations and ensure proper indexing on user_id and created_at fields. Add input validation and sanitization for topic data.",
+        "description": "Create the foundational database models and API endpoints for Study Topic creation, reading, updating, and deletion with proper user ownership validation and authorization controls.",
+        "dependencies": [],
+        "testStrategy": "Unit tests for model validation, integration tests for API endpoints with different user roles, test unauthorized access attempts, and validate proper error responses for invalid data."
+      },
+      {
+        "id": 2,
+        "title": "Build Content Source Management System",
+        "status": "pending",
+        "details": "Create ContentSource model with fields for source_type, url, file_path, metadata, and topic_id. Implement file upload handling for PDFs and images with proper storage and security measures. Add URL validation for YouTube and web links with metadata extraction (title, description, thumbnail). Create API endpoints for adding/removing content sources and implement bulk operations. Add content type detection and file size limits.",
+        "description": "Implement the ability for users to add, manage, and remove various content sources (YouTube URLs, PDFs, images, web links) within their study topics with validation and metadata extraction.",
+        "dependencies": [
+          1
+        ],
+        "testStrategy": "Test file upload functionality with various file types and sizes, validate URL parsing and metadata extraction, test bulk operations with multiple sources, and verify proper cleanup when sources are deleted."
+      },
+      {
+        "id": 3,
+        "title": "Create Topic Dashboard with Status and Metadata Display",
+        "status": "pending",
+        "details": "Design and implement a dashboard component that shows topic statistics (total sources, processing status, last updated). Create status indicators for content ingestion progress with real-time updates. Display content source previews with thumbnails and metadata. Implement responsive design for mobile and desktop views. Add loading states and error handling for dashboard data fetching.",
+        "description": "Build a comprehensive dashboard interface that displays topic overview, content ingestion status, source summaries, and relevant metadata for effective topic management.",
+        "dependencies": [
+          1,
+          2
+        ],
+        "testStrategy": "Test dashboard rendering with various topic states, verify real-time status updates, test responsive design across devices, and validate performance with topics containing many content sources."
+      },
+      {
+        "id": 4,
+        "title": "Implement Topic Categorization and Tagging System",
+        "status": "pending",
+        "details": "Design Category and Tag models with many-to-many relationships to StudyTopic. Implement predefined categories (e.g., Academic, Professional, Personal) and allow custom category creation. Create tag management with autocomplete functionality and tag suggestions. Add hierarchical category support with parent-child relationships. Implement API endpoints for category/tag CRUD operations and topic assignment.",
+        "description": "Create a flexible categorization and tagging system that allows users to organize their study topics with custom categories, tags, and hierarchical organization for better content discovery.",
+        "dependencies": [
+          1
+        ],
+        "testStrategy": "Test category hierarchy creation and navigation, validate tag autocomplete functionality, test bulk tagging operations, and verify proper cleanup when categories or tags are deleted."
+      },
+      {
+        "id": 5,
+        "title": "Build Search and Filtering System with Topic Templates",
+        "status": "pending",
+        "details": "Create full-text search functionality across topic titles, descriptions, and content metadata using appropriate search engine (Elasticsearch or database full-text search). Implement advanced filtering by categories, tags, creation date, and content types. Design topic template system allowing users to create reusable topic structures. Add topic duplication functionality with content source copying options. Implement search result ranking and pagination.",
+        "description": "Implement comprehensive search and filtering capabilities for topics along with template functionality for topic duplication and standardized topic creation workflows.",
+        "dependencies": [
+          1,
+          4
+        ],
+        "testStrategy": "Test search functionality with various query types and large datasets, validate filtering combinations and performance, test template creation and duplication workflows, and verify search result accuracy and ranking."
+      }
+    ],
+    "description": "Create the core Study Topic functionality allowing users to create, manage, and organize their learning materials with proper access controls.",
+    "dependencies": [
+      2,
+      3,
+      5
+    ],
+    "testStrategy": "Test topic creation, editing, and deletion with proper authorization. Verify content source management works correctly. Test concurrent access to shared topics. Validate search and filtering functionality with large datasets."
+  },
+  {
+    "id": 7,
+    "title": "Knowledge Graph Generation with LightRag",
+    "status": "pending",
+    "details": "Integrate LightRag library for entity and relationship extraction from processed content. Create graph generation pipeline that processes all content sources within a study topic. Implement graph data structure with nodes representing entities and edges representing relationships. Build interactive graph visualization component in Svelte with pan, zoom, and node highlighting. Add color-coding for nodes based on content source type. Implement graph layout algorithms for optimal visualization. Create graph export functionality for sharing and backup. Add graph statistics and analytics tracking.",
+    "priority": "medium",
+    "subtasks": [
+      {
+        "id": 1,
+        "title": "Integrate LightRag Library and Setup Entity Extraction Pipeline",
+        "status": "pending",
+        "details": "Install and configure LightRag library. Create content processing pipeline that takes ingested content from various sources and feeds it to LightRag for entity and relationship extraction. Implement data models for extracted entities and relationships. Set up configuration for extraction parameters and content type handling. Create utility functions for content preprocessing and post-processing of extracted data.",
+        "description": "Set up LightRag library integration and create the core pipeline for extracting entities and relationships from processed content within study topics.",
+        "dependencies": [],
+        "testStrategy": "Test entity extraction with sample content from different sources. Verify relationship identification accuracy. Test pipeline performance with various content sizes and formats."
+      },
+      {
+        "id": 2,
+        "title": "Build Graph Data Structure and Storage System",
+        "status": "pending",
+        "details": "Create graph data models with Node and Edge classes. Implement graph storage using appropriate data structure (adjacency list or matrix). Add methods for adding, updating, and removing nodes and edges. Implement graph traversal algorithms. Create serialization/deserialization methods for graph persistence. Add indexing for efficient node and edge lookups. Implement graph merging capabilities for combining multiple content sources.",
+        "description": "Implement the core graph data structure with nodes representing entities and edges representing relationships, including storage and retrieval mechanisms.",
+        "dependencies": [
+          1
+        ],
+        "testStrategy": "Test graph construction with extracted entities and relationships. Verify graph integrity and traversal performance. Test serialization and persistence functionality."
+      },
+      {
+        "id": 3,
+        "title": "Implement Graph Layout Algorithms and Optimization",
+        "status": "pending",
+        "details": "Implement force-directed layout algorithm (e.g., Fruchterman-Reingold or D3-force). Add hierarchical layout options for structured content. Implement clustering algorithms for grouping related nodes. Create layout optimization for different graph sizes and densities. Add collision detection and node spacing algorithms. Implement incremental layout updates for dynamic graphs. Create layout presets for different content types.",
+        "description": "Develop and integrate graph layout algorithms to optimize node positioning for clear visualization and implement performance optimizations for large graphs.",
+        "dependencies": [
+          2
+        ],
+        "testStrategy": "Test layout algorithms with graphs of varying sizes and complexity. Verify layout performance and visual clarity. Test incremental updates and layout stability."
+      },
+      {
+        "id": 4,
+        "title": "Create Interactive Svelte Visualization Component",
+        "status": "pending",
+        "details": "Create Svelte component for graph rendering using SVG or Canvas. Implement pan and zoom functionality with smooth transitions. Add node and edge interaction handlers (hover, click, drag). Implement color-coding system for different content source types. Create node highlighting and selection features. Add search functionality for finding specific nodes. Implement tooltip system for displaying node/edge details. Add responsive design for different screen sizes.",
+        "description": "Build the interactive graph visualization component in Svelte with pan, zoom, node highlighting, and color-coding based on content source types.",
+        "dependencies": [
+          3
+        ],
+        "testStrategy": "Test interactive features with various graph sizes. Verify pan/zoom performance and smoothness. Test node highlighting and search functionality. Validate color-coding accuracy and visual clarity."
+      },
+      {
+        "id": 5,
+        "title": "Add Export Functionality and Analytics Tracking",
+        "status": "pending",
+        "details": "Create export functionality for multiple formats (JSON, GraphML, PNG, SVG). Implement graph sharing capabilities with URL generation. Add backup and restore functionality for graph states. Create analytics tracking for graph interactions, node visits, and search queries. Implement graph statistics calculation (node count, edge count, clustering coefficient, centrality measures). Add performance monitoring for visualization rendering times. Create dashboard for graph analytics and usage statistics.",
+        "description": "Implement graph export capabilities for sharing and backup, along with comprehensive analytics and statistics tracking for graph usage and performance.",
+        "dependencies": [
+          4
+        ],
+        "testStrategy": "Test export functionality with various graph sizes and formats. Verify sharing and backup capabilities. Test analytics accuracy and performance tracking. Validate statistics calculations against known graph metrics."
+      }
+    ],
+    "description": "Implement LightRag integration to generate interactive knowledge graphs from ingested content with pan and zoom visualization capabilities.",
+    "dependencies": [
+      6
+    ],
+    "testStrategy": "Test graph generation with various content types and sizes. Verify interactive visualization performance with large graphs. Test node highlighting and search functionality. Validate graph accuracy against source content."
+  },
+  {
+    "id": 8,
+    "title": "Natural Language Query Interface",
+    "status": "pending",
+    "details": "Implement GPT-4 integration via MCP connection for processing natural language queries. Create query processing pipeline that searches through ingested content and knowledge graph. Build context retrieval system that finds relevant content snippets for answering questions. Implement citation system linking answers back to source materials with timestamps and document references. Create query history and bookmarking functionality. Add query suggestion and auto-completion features. Implement answer quality scoring and feedback collection. Create query analytics and performance monitoring.",
+    "priority": "medium",
+    "subtasks": [
+      {
+        "id": 1,
+        "title": "Implement GPT-4 Integration via MCP Connection",
+        "status": "pending",
+        "details": "Configure MCP client to connect to GPT-4 API. Implement authentication and rate limiting. Create query formatting functions to structure user questions for optimal AI processing. Set up response parsing to extract answers and maintain conversation context. Include error handling for API failures and fallback mechanisms.",
+        "description": "Set up the core AI integration by establishing a Model Context Protocol (MCP) connection to GPT-4 for processing natural language queries and generating contextual responses.",
+        "dependencies": [],
+        "testStrategy": "Test API connectivity, authentication, rate limiting behavior, and response parsing with various query types"
+      },
+      {
+        "id": 2,
+        "title": "Build Query Processing Pipeline",
+        "status": "pending",
+        "details": "Implement query preprocessing to clean and normalize user input. Create semantic search functionality to query the knowledge graph and document embeddings. Build relevance scoring algorithms to rank search results. Implement query expansion techniques to improve search coverage. Add query classification to route different question types appropriately.",
+        "description": "Create the core pipeline that processes incoming natural language queries, searches through ingested content and knowledge graph to find relevant information for answering user questions.",
+        "dependencies": [
+          1
+        ],
+        "testStrategy": "Test search accuracy with various question types, verify relevance scoring, and validate query expansion effectiveness"
+      },
+      {
+        "id": 3,
+        "title": "Develop Context Retrieval System",
+        "status": "pending",
+        "details": "Implement content chunking strategies to extract relevant passages from documents. Create context assembly algorithms that combine multiple sources coherently. Build snippet ranking system based on relevance and quality. Implement context window management to optimize information density. Add deduplication logic to avoid redundant information in responses.",
+        "description": "Build a sophisticated system that retrieves and assembles relevant content snippets from various sources to provide comprehensive context for answering user questions.",
+        "dependencies": [
+          2
+        ],
+        "testStrategy": "Verify context relevance and completeness, test snippet extraction accuracy, and validate context assembly quality"
+      },
+      {
+        "id": 4,
+        "title": "Implement Citation and Source Linking System",
+        "status": "pending",
+        "details": "Build citation tracking that maintains source-to-answer mappings throughout the query process. Implement reference formatting for different document types (PDFs, videos, web pages). Create clickable citation links that navigate users to exact source locations. Add timestamp citations for video and audio content. Implement citation validation to ensure accuracy and accessibility of referenced sources.",
+        "description": "Create a comprehensive citation system that links AI-generated answers back to their source materials with accurate timestamps, document references, and page numbers.",
+        "dependencies": [
+          3
+        ],
+        "testStrategy": "Test citation accuracy and link functionality, verify timestamp precision for media content, and validate source accessibility"
+      },
+      {
+        "id": 5,
+        "title": "Build Query Enhancement and Analytics Features",
+        "status": "pending",
+        "details": "Create query history storage and retrieval system with search capabilities. Implement bookmarking functionality for saving important Q&A pairs. Build auto-completion using query patterns and topic suggestions. Develop answer quality scoring algorithms based on relevance, completeness, and user feedback. Create feedback collection interface for continuous improvement. Implement analytics dashboard for query performance monitoring and usage patterns.",
+        "description": "Implement advanced features including query history, bookmarking, auto-completion, answer quality scoring, feedback collection, and performance monitoring to enhance user experience and system optimization.",
+        "dependencies": [
+          4
+        ],
+        "testStrategy": "Test query history functionality, validate auto-completion accuracy, verify feedback collection mechanisms, and monitor analytics data quality"
+      }
+    ],
+    "description": "Build the AI-powered query system that allows users to ask questions about their study topics and receive contextual answers with proper citations.",
+    "dependencies": [
+      7
+    ],
+    "testStrategy": "Test query accuracy with various question types and complexity levels. Verify citation links work correctly and point to accurate sources. Test query performance under load. Validate answer quality and relevance through user feedback simulation."
+  },
+  {
+    "id": 9,
+    "title": "Audio Class Generation and Playback System",
+    "status": "pending",
+    "details": "Integrate ElevenLabs SDK for text-to-speech conversion of study topic summaries. Create audio generation pipeline that processes knowledge graph content into coherent audio scripts. Implement voice selection and customization options for different learning preferences. Build audio player component with basic controls (play, pause, seek, volume). Add MP3 download functionality with proper file naming and metadata. Create audio generation queue system for handling multiple requests. Implement audio caching to avoid regenerating identical content. Add audio analytics tracking for usage patterns.",
+    "priority": "medium",
+    "subtasks": [
+      {
+        "id": 1,
+        "title": "ElevenLabs SDK Integration and Audio Generation Pipeline",
+        "status": "pending",
+        "details": "Install and configure ElevenLabs SDK with proper API key management. Create AudioService class with methods for text-to-speech conversion. Implement voice selection functionality with predefined voice options. Set up error handling for API failures and rate limiting. Create audio generation pipeline that processes knowledge graph content into coherent scripts suitable for speech synthesis. Include content preprocessing to handle special characters, formatting, and optimize for audio delivery.",
+        "description": "Set up ElevenLabs SDK integration and create the core audio generation pipeline that converts study topic summaries into speech. This includes API authentication, voice selection, and basic text-to-speech conversion functionality.",
+        "dependencies": [],
+        "testStrategy": "Test API connectivity and authentication. Verify audio generation with various text inputs and voice options. Test error handling for invalid API keys and network failures."
+      },
+      {
+        "id": 2,
+        "title": "Audio Generation Queue and Caching System",
+        "status": "pending",
+        "details": "Create AudioQueue class to manage concurrent audio generation requests with priority handling. Implement job status tracking and progress updates. Build audio caching system using browser storage or server-side cache to store generated audio files with content hash keys. Create cache invalidation logic based on content changes. Implement queue processing with retry logic for failed generations. Add queue monitoring and analytics for performance optimization.",
+        "description": "Implement a queue system for handling multiple audio generation requests and create a caching mechanism to avoid regenerating identical content. This ensures efficient resource usage and better user experience.",
+        "dependencies": [
+          1
+        ],
+        "testStrategy": "Test queue handling with multiple simultaneous requests. Verify cache hit/miss functionality and storage efficiency. Test queue recovery after failures and proper cleanup of completed jobs."
+      },
+      {
+        "id": 3,
+        "title": "Audio Player Component with Playback Controls",
+        "status": "pending",
+        "details": "Create AudioPlayer React component with HTML5 audio element integration. Implement play/pause toggle, seek bar with click-to-seek functionality, volume slider, and playback speed controls. Add keyboard shortcuts for accessibility (spacebar for play/pause, arrow keys for seeking). Include visual feedback for loading states and buffering. Implement progress tracking and time display (current/total duration). Add responsive design for mobile and desktop views. Include error handling for unsupported audio formats or playback failures.",
+        "description": "Build a comprehensive audio player component with essential playback controls including play, pause, seek, volume control, and playback speed adjustment. The player should be responsive and accessible.",
+        "dependencies": [
+          1
+        ],
+        "testStrategy": "Test playback controls functionality across different browsers and devices. Verify keyboard accessibility and screen reader compatibility. Test audio loading and error states with various file formats."
+      },
+      {
+        "id": 4,
+        "title": "MP3 Download Functionality with Metadata",
+        "status": "pending",
+        "details": "Create download service that handles MP3 file generation and browser download triggers. Implement proper file naming convention using study topic titles and timestamps. Add ID3 metadata to MP3 files including title, artist (app name), album (study collection), and cover art. Ensure cross-browser compatibility for download functionality using blob URLs and download attributes. Implement download progress tracking for large files. Add file size optimization and compression options. Create batch download functionality for multiple audio files.",
+        "description": "Implement MP3 download functionality that allows users to save generated audio files locally with proper file naming, metadata, and cross-browser compatibility.",
+        "dependencies": [
+          1,
+          2
+        ],
+        "testStrategy": "Test download functionality across major browsers (Chrome, Firefox, Safari, Edge). Verify file naming and metadata accuracy. Test download progress and error handling for network interruptions."
+      },
+      {
+        "id": 5,
+        "title": "Audio Analytics and Usage Tracking",
+        "status": "pending",
+        "details": "Create AudioAnalytics service to track audio generation requests, completion rates, and costs. Implement playback analytics including play duration, completion rates, and user engagement metrics. Track download patterns and popular content types. Monitor ElevenLabs API usage and costs with alerts for budget thresholds. Create analytics dashboard for administrators to view usage patterns and performance metrics. Implement user-level analytics (with privacy considerations) to personalize audio recommendations. Add error tracking and performance monitoring for audio-related features.",
+        "description": "Implement comprehensive analytics tracking for audio generation and playback patterns to monitor usage, costs, and user engagement with the audio features.",
+        "dependencies": [
+          2,
+          3,
+          4
+        ],
+        "testStrategy": "Verify analytics data accuracy and proper event tracking. Test cost monitoring and alert functionality. Validate privacy compliance and data anonymization where required."
+      }
+    ],
+    "description": "Implement ElevenLabs integration for generating audio summaries of study topics with MP3 download and basic playback functionality.",
+    "dependencies": [
+      7
+    ],
+    "testStrategy": "Test audio generation quality and accuracy with various content types. Verify MP3 download functionality across different browsers. Test audio player controls and compatibility. Monitor audio generation costs and performance."
+  },
+  {
+    "id": 10,
+    "title": "Frontend UI/UX Implementation and Analytics Dashboard",
+    "status": "pending",
+    "details": "Implement complete Svelte frontend with Tailwind CSS using Neobrutalism design principles. Create responsive layouts that work across desktop and mobile devices. Build comprehensive analytics dashboard showing ingestion counts, query frequency, audio downloads, and credit usage. Implement user onboarding flow with guided tutorials. Create loading states, error handling, and user feedback systems throughout the application. Add accessibility features including keyboard navigation and screen reader support. Implement real-time updates using WebSocket connections. Create user settings and preferences management. Add export functionality for user data and analytics.",
+    "priority": "medium",
+    "subtasks": [
+      {
+        "id": 1,
+        "title": "Core Svelte Application Structure and Neobrutalism Design System",
+        "status": "pending",
+        "details": "Initialize Svelte project with Tailwind CSS configuration. Create design tokens for Neobrutalism style including bold colors, thick borders, drop shadows, and chunky typography. Implement base components like buttons, cards, inputs, and navigation elements. Set up routing structure and main layout components. Create CSS utility classes for consistent Neobrutalism styling across the application.",
+        "description": "Set up the foundational Svelte application architecture with Tailwind CSS and implement the Neobrutalism design system including typography, color schemes, bold borders, and shadow effects.",
+        "dependencies": [],
+        "testStrategy": "Visual regression testing for design consistency, cross-browser compatibility testing for styling elements"
+      },
+      {
+        "id": 2,
+        "title": "Responsive Layout System and Mobile Optimization",
+        "status": "pending",
+        "details": "Create responsive grid systems using Tailwind's responsive utilities. Implement mobile navigation patterns including hamburger menus and slide-out panels. Optimize touch interactions for mobile devices. Create breakpoint-specific layouts for different screen sizes. Ensure all UI components scale appropriately and maintain usability across devices.",
+        "description": "Implement responsive design patterns and mobile-first layouts that adapt seamlessly across desktop, tablet, and mobile devices while maintaining the Neobrutalism aesthetic.",
+        "dependencies": [
+          1
+        ],
+        "testStrategy": "Test on multiple device sizes and orientations, validate touch interactions, verify layout integrity at various breakpoints"
+      },
+      {
+        "id": 3,
+        "title": "Analytics Dashboard with Real-time Data Visualization",
+        "status": "pending",
+        "details": "Create dashboard components for displaying metrics using charts and graphs. Implement WebSocket client for real-time data updates. Build data visualization components for trends, usage patterns, and statistics. Create filtering and date range selection functionality. Implement data export features for analytics reports. Add performance optimization for handling large datasets.",
+        "description": "Build a comprehensive analytics dashboard displaying ingestion counts, query frequency, audio downloads, and credit usage with real-time updates via WebSocket connections.",
+        "dependencies": [
+          1,
+          2
+        ],
+        "testStrategy": "Test real-time data updates, validate chart accuracy with mock data, performance testing with large datasets"
+      },
+      {
+        "id": 4,
+        "title": "User Experience Features and Accessibility Implementation",
+        "status": "pending",
+        "details": "Create guided tutorial system for user onboarding with step-by-step walkthroughs. Implement loading spinners, skeleton screens, and progress indicators. Build comprehensive error handling with user-friendly error messages. Add ARIA labels, semantic HTML, and keyboard navigation support. Implement screen reader compatibility and focus management. Create user feedback systems including notifications and confirmation dialogs.",
+        "description": "Implement user onboarding flow, loading states, error handling, accessibility features including WCAG compliance, keyboard navigation, and screen reader support.",
+        "dependencies": [
+          1,
+          2
+        ],
+        "testStrategy": "WCAG accessibility audit, keyboard navigation testing, screen reader compatibility testing, user experience flow validation"
+      },
+      {
+        "id": 5,
+        "title": "User Settings and Data Management System",
+        "status": "pending",
+        "details": "Build user settings interface for customizing dashboard preferences, notification settings, and display options. Implement data export functionality for user analytics and activity data in multiple formats (CSV, JSON, PDF). Create user preference persistence using local storage or user accounts. Add data privacy controls and account management features. Implement bulk operations for data management.",
+        "description": "Create user settings and preferences management interface with data export functionality, allowing users to customize their experience and export their data and analytics.",
+        "dependencies": [
+          1,
+          2,
+          3
+        ],
+        "testStrategy": "Test settings persistence across sessions, validate data export accuracy and format integrity, verify privacy controls functionality"
+      }
+    ],
+    "description": "Complete the Svelte frontend with Neobrutalism styling, responsive design, and comprehensive analytics dashboard for user activity tracking.",
+    "dependencies": [
+      2,
+      6,
+      8,
+      9
+    ],
+    "testStrategy": "Test responsive design across various screen sizes and devices. Verify accessibility compliance with WCAG guidelines. Test real-time updates and WebSocket connections. Validate analytics accuracy and dashboard performance with large datasets."
+  }
+]
