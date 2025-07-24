@@ -74,6 +74,7 @@ src/
   components/
     Button.svelte
     Card.svelte
+    ChatModal.svelte
     GraphViewer.svelte
     Navbar.svelte
     …
@@ -108,7 +109,7 @@ We use Svelte’s built-in writable and derived stores for global state:
 
 - **auth.ts:** Holds wallet connection status, NFT ownership flag, user address.
 - **topicStore.ts:** Tracks current topics list, selected topic details, ingestion status.
-- **uiStore.ts:** Manages UI flags (e.g., loading spinners, modals open/closed).
+- **uiStore.ts:** Manages UI flags (e.g., loading spinners, modals open/closed, chat modal state).
 
 ### Sharing State
 
@@ -185,13 +186,33 @@ Please don't use Router library
 - **MCP Status:** 0.65rem IBM Plex Mono (very small)
 - **Buttons:** 0.875rem IBM Plex Mono, bold
 
+### Chat Modal Interface
+
+- **Modal Layout:** Centered overlay with three distinct sections:
+  - **Header (White):** Topic title, subtitle, and pink close button
+  - **Sources Sidebar (Yellow #FFF200):** 25% width, lists all topic sources with blue hover effects
+  - **Chat Area (White):** Main conversation interface with message bubbles
+  - **Input Area (White):** Bottom textarea with blue Send button
+
+- **Interactive Features:**
+  - **Source Hover Effects:** Items change to blue background (#0050FF) with white text on hover
+  - **Real-time Chat:** Simulated conversation with typing indicators
+  - **Keyboard Shortcuts:** Enter to send, Shift+Enter for new line
+  - **Responsive Design:** 72rem max-width, 80vh height, centered positioning
+
+- **Modal State Management:**
+  - **uiStore Integration:** `isChatModalOpen` and `selectedTopicForChat` states
+  - **Topic Integration:** Sources loaded from topic data in topicStore
+  - **Event Handling:** Study button opens modal, close button/escape/backdrop closes modal
+
 ## 10. Conclusion and Overall Frontend Summary
 
-Study4Me's frontend prototype demonstrates the Neobrutalist design principles with a clean, functional dashboard. The current implementation focuses on:
+Study4Me's frontend prototype demonstrates the Neobrutalist design principles with a clean, functional dashboard and interactive chat interface. The current implementation focuses on:
 
 - **Bold visual hierarchy** with thick black borders and high-contrast colors
 - **Clear user actions** through color-coded button system
+- **Interactive chat modal** for study sessions with topic sources
 - **Functional layout** that prioritizes learning workflows
 - **Scalable component structure** ready for future expansion
 
-The prototype successfully establishes the visual identity and core user interactions for the Study4Me platform, providing a solid foundation for further development.
+The prototype successfully establishes the visual identity and core user interactions for the Study4Me platform, including the central chat-based learning interface, providing a solid foundation for further development.

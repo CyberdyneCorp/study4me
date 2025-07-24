@@ -3,6 +3,8 @@ import { writable } from 'svelte/store'
 export interface UIState {
   isModalOpen: boolean
   modalContent: string | null
+  isChatModalOpen: boolean
+  selectedTopicForChat: string | null
   notifications: Notification[]
   theme: 'light' | 'dark'
 }
@@ -17,6 +19,8 @@ export interface Notification {
 const initialState: UIState = {
   isModalOpen: false,
   modalContent: null,
+  isChatModalOpen: false,
+  selectedTopicForChat: null,
   notifications: [],
   theme: 'light'
 }
@@ -37,6 +41,22 @@ export const uiActions = {
       ...state,
       isModalOpen: false,
       modalContent: null
+    }))
+  },
+  
+  openChatModal: (topicId: string) => {
+    uiStore.update(state => ({
+      ...state,
+      isChatModalOpen: true,
+      selectedTopicForChat: topicId
+    }))
+  },
+  
+  closeChatModal: () => {
+    uiStore.update(state => ({
+      ...state,
+      isChatModalOpen: false,
+      selectedTopicForChat: null
     }))
   },
   

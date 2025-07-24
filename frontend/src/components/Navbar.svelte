@@ -1,27 +1,34 @@
 <script lang="ts">
-  import { link } from 'svelte-spa-router'
-  import Button from './Button.svelte'
+  let mcpEnabled = true;
+  
+  function toggleMCP() {
+    mcpEnabled = !mcpEnabled;
+  }
 </script>
 
-<nav class="bg-white border-b-4 border-black p-4">
-  <div class="max-w-7xl mx-auto flex items-center justify-between">
-    <a href="/" use:link class="text-2xl font-bold text-black" style="font-family: 'IBM Plex Mono', monospace;">
-      Study4Me
-    </a>
-    
-    <div class="flex items-center space-x-4">
-      <a href="/" use:link class="font-medium text-black hover:text-blue-600" style="font-family: 'IBM Plex Mono', monospace;">
-        Dashboard
-      </a>
-      <a href="/create" use:link class="font-medium text-black hover:text-blue-600" style="font-family: 'IBM Plex Mono', monospace;">
-        New Topic
-      </a>
-      <a href="/analytics" use:link class="font-medium text-black hover:text-blue-600" style="font-family: 'IBM Plex Mono', monospace;">
-        Analytics
-      </a>
-      <Button variant="primary" size="sm">
+<nav style="background-color: white; border-bottom: 4px solid black; padding: 1rem;">
+  <div style="max-width: 80rem; margin: 0 auto; display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; flex-direction: column; align-items: flex-start;">
+      <h1 style="font-size: 1.5rem; font-weight: bold; color: black; font-family: 'IBM Plex Mono', monospace; margin-bottom: 0.25rem;">
+        Study4Me
+      </h1>
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-weight: bold; color: black; font-size: 0.65rem;">
+          MCP:
+        </span>
+        <button 
+          on:click={toggleMCP} 
+          style="background-color: {mcpEnabled ? '#10B981' : '#EF4444'}; color: white; border: 2px solid black; border-radius: 3px; padding: 0.125rem 0.5rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer; font-size: 0.65rem;"
+        >
+          {mcpEnabled ? 'Enabled' : 'Disabled'}
+        </button>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <span style="color: black; font-family: 'IBM Plex Mono', monospace; font-weight: bold;">Dashboard</span>
+      <button style="background-color: #0050FF; color: white; border: 4px solid black; border-radius: 4px; padding: 0.5rem 1rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer;">
         Connect Wallet
-      </Button>
+      </button>
     </div>
   </div>
 </nav>

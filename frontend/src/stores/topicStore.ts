@@ -7,6 +7,7 @@ export interface Topic {
   status: 'pending' | 'processing' | 'completed' | 'error'
   createdAt: string
   updatedAt: string
+  sources?: Array<{id: string, title: string, type: string}>
   graphData?: any
   audioSummary?: string
 }
