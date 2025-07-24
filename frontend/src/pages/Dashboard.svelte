@@ -167,7 +167,7 @@
     </button>
     
     {#each $topicStore.topics as topic}
-      <div class="bg-white border-4 border-black rounded p-6 relative">
+      <div class="bg-white border-4 border-black rounded p-6 relative flex flex-col min-h-80">
         <button 
           class="absolute top-4 right-4 bg-brand-red text-white border-2 border-black rounded px-2 py-1 font-mono font-bold cursor-pointer text-xs flex items-center gap-1"
         >
@@ -195,33 +195,41 @@
             <rect x="13" y="11" width="2" height="6"/>
           </svg>
         </button>
-        <h3 class="text-xl font-bold mb-4 text-black font-mono pr-20">
-          {topic.title}
-        </h3>
-        <p class="text-secondary-text mb-4">
-          {topic.description}
-        </p>
-        <div class="flex items-center justify-between mb-4">
-          <span 
-            class="{topic.status === 'completed' ? 'bg-green-500' : 'bg-yellow-500'} text-white px-3 py-1 rounded text-sm font-mono"
-          >
-            {topic.status}
-          </span>
-          <span class="text-sm text-secondary-text">{topic.createdAt}</span>
-        </div>
-        <div class="flex gap-2">
-          <button 
-            class="bg-brand-blue text-white border-4 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer text-sm"
-            on:click={() => handleStudyClick(topic)}
-          >
-            Study
-          </button>
-          <button 
-            class="bg-brand-pink text-white border-4 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer text-sm"
-            on:click={() => handleAddRemoveSourcesClick(topic)}
-          >
-            Add/Remove Sources
-          </button>
+        
+        <!-- Card Content -->
+        <div class="flex-1 flex flex-col">
+          <h3 class="text-xl font-bold mb-4 text-black font-mono pr-20">
+            {topic.title}
+          </h3>
+          <p class="text-secondary-text mb-4 flex-1">
+            {topic.description}
+          </p>
+          
+          <!-- Status and Date Row -->
+          <div class="flex items-center justify-between mb-4">
+            <span 
+              class="{topic.status === 'completed' ? 'bg-green-500' : 'bg-yellow-500'} text-white px-3 py-1 rounded text-sm font-mono"
+            >
+              {topic.status}
+            </span>
+            <span class="text-sm text-secondary-text">{topic.createdAt}</span>
+          </div>
+          
+          <!-- Action Buttons - Always at bottom -->
+          <div class="flex gap-2 mt-auto">
+            <button 
+              class="bg-brand-blue text-white border-4 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer text-sm"
+              on:click={() => handleStudyClick(topic)}
+            >
+              Study
+            </button>
+            <button 
+              class="bg-brand-pink text-white border-4 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer text-sm"
+              on:click={() => handleAddRemoveSourcesClick(topic)}
+            >
+              Add/Remove Sources
+            </button>
+          </div>
         </div>
       </div>
     {/each}
