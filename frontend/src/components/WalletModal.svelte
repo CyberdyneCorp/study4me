@@ -43,6 +43,7 @@
     role="dialog"
     aria-modal="true"
     aria-labelledby="wallet-modal-title"
+    tabindex="-1"
   >
     <!-- Modal content -->
     <div class="bg-white border-4 border-black rounded-lg w-11/12 max-w-md relative">

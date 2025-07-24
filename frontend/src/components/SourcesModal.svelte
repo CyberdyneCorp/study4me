@@ -94,6 +94,7 @@
     role="dialog"
     aria-modal="true"
     aria-labelledby="sources-modal-title"
+    tabindex="-1"
   >
     <!-- Modal Container -->
     <div 
@@ -152,6 +153,10 @@
                 on:dragleave={handleDragLeave}
                 on:drop={handleDrop}
                 on:click={() => document.getElementById('file-input')?.click()}
+                on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && document.getElementById('file-input')?.click()}
+                role="button"
+                tabindex="0"
+                aria-label="Upload files by clicking or dragging and dropping"
               >
                 <div class="text-5xl mb-4">📤</div>
                 <h3 class="text-lg font-bold font-mono mb-2">
@@ -214,11 +219,12 @@
               </div>
               
               <div class="bg-white border-2 border-black p-4">
-                <label class="block font-bold font-mono mb-2 text-sm">
+                <label for="website-url-input" class="block font-bold font-mono mb-2 text-sm">
                   Website URL
                 </label>
                 <div class="flex gap-2">
                   <input 
+                    id="website-url-input"
                     type="url"
                     bind:value={websiteUrl}
                     placeholder="https://example.com"
@@ -268,11 +274,12 @@
               </div>
               
               <div class="bg-white border-2 border-black p-4">
-                <label class="block font-bold font-mono mb-2 text-sm">
+                <label for="youtube-url-input" class="block font-bold font-mono mb-2 text-sm">
                   YouTube URL
                 </label>
                 <div class="flex gap-2">
                   <input 
+                    id="youtube-url-input"
                     type="url"
                     bind:value={youtubeUrl}
                     placeholder="https://youtube.com/watch?v=..."
