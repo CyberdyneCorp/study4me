@@ -5,6 +5,7 @@
   import Card from '../components/Card.svelte'
   import Button from '../components/Button.svelte'
   import ChatModal from '../components/ChatModal.svelte'
+  import SourcesModal from '../components/SourcesModal.svelte'
   
   onMount(() => {
     topicActions.setTopics([
@@ -44,8 +45,20 @@
     uiActions.closeChatModal()
   }
   
+  function handleAddRemoveSourcesClick(topic: any) {
+    uiActions.openSourcesModal(topic.id)
+  }
+  
+  function handleCloseSourcesModal() {
+    uiActions.closeSourcesModal()
+  }
+  
   $: selectedTopic = $uiStore.selectedTopicForChat 
     ? $topicStore.topics.find(t => t.id === $uiStore.selectedTopicForChat)
+    : null
+    
+  $: selectedTopicForSources = $uiStore.selectedTopicForSources 
+    ? $topicStore.topics.find(t => t.id === $uiStore.selectedTopicForSources)
     : null
   
   function getStatusColor(status: string) {
@@ -107,6 +120,7 @@
           </button>
           <button 
             style="background-color: #EC4899; color: white; border: 4px solid black; border-radius: 4px; padding: 0.5rem 1rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer; font-size: 0.875rem;"
+            on:click={() => handleAddRemoveSourcesClick(topic)}
           >
             Add/Remove Sources
           </button>
@@ -136,4 +150,11 @@
   topicTitle={selectedTopic?.title || ''}
   sources={selectedTopic?.sources || []}
   on:close={handleCloseChatModal}
+/>
+
+<!-- Sources Modal -->
+<SourcesModal 
+  isOpen={$uiStore.isSourcesModalOpen}
+  topicTitle={selectedTopicForSources?.title || ''}
+  on:close={handleCloseSourcesModal}
 />

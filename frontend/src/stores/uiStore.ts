@@ -5,6 +5,8 @@ export interface UIState {
   modalContent: string | null
   isChatModalOpen: boolean
   selectedTopicForChat: string | null
+  isSourcesModalOpen: boolean
+  selectedTopicForSources: string | null
   notifications: Notification[]
   theme: 'light' | 'dark'
 }
@@ -21,6 +23,8 @@ const initialState: UIState = {
   modalContent: null,
   isChatModalOpen: false,
   selectedTopicForChat: null,
+  isSourcesModalOpen: false,
+  selectedTopicForSources: null,
   notifications: [],
   theme: 'light'
 }
@@ -57,6 +61,22 @@ export const uiActions = {
       ...state,
       isChatModalOpen: false,
       selectedTopicForChat: null
+    }))
+  },
+  
+  openSourcesModal: (topicId: string) => {
+    uiStore.update(state => ({
+      ...state,
+      isSourcesModalOpen: true,
+      selectedTopicForSources: topicId
+    }))
+  },
+  
+  closeSourcesModal: () => {
+    uiStore.update(state => ({
+      ...state,
+      isSourcesModalOpen: false,
+      selectedTopicForSources: null
     }))
   },
   

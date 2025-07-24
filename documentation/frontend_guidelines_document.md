@@ -77,6 +77,7 @@ src/
     ChatModal.svelte
     GraphViewer.svelte
     Navbar.svelte
+    SourcesModal.svelte
     …
   pages/
     Dashboard.svelte
@@ -109,7 +110,7 @@ We use Svelte’s built-in writable and derived stores for global state:
 
 - **auth.ts:** Holds wallet connection status, NFT ownership flag, user address.
 - **topicStore.ts:** Tracks current topics list, selected topic details, ingestion status.
-- **uiStore.ts:** Manages UI flags (e.g., loading spinners, modals open/closed, chat modal state).
+- **uiStore.ts:** Manages UI flags (e.g., loading spinners, modals open/closed, chat modal state, sources modal state).
 
 ### Sharing State
 
@@ -213,6 +214,36 @@ Please don't use Router library
   - **Topic Integration:** Sources loaded from topic data in topicStore
   - **Event Handling:** Study button opens modal, close button/escape/backdrop closes modal
 
+### Sources Modal Interface
+
+- **Modal Layout:** Centered overlay for content management:
+  - **Header (White):** Topic title, subtitle, and pink close button
+  - **Tab Navigation (Yellow #FFF200):** Three tabs for different source types
+  - **Content Area (Light Gray):** Tab-specific interfaces with compact design
+  - **Footer (White):** Source counter and action buttons
+
+- **Tab Structure:**
+  - **Upload Files Tab:** Drag & drop area, file browser, uploaded files list with file details
+  - **Website Tab:** URL input field, scrape button, quick action buttons for content types
+  - **YouTube Tab:** Video URL input, add button, feature list in 2-column grid
+
+- **Interactive Features:**
+  - **Drag & Drop Upload:** Visual feedback with yellow background on drag hover
+  - **File Management:** Display uploaded files with name, size, type, and remove functionality
+  - **Tab Switching:** Active tab highlighted with white background
+  - **Compact Design:** Smaller fonts and tighter spacing to prevent vertical scrolling
+
+- **Design Optimization:**
+  - **Space Efficiency:** Reduced padding, margins, and font sizes for content density
+  - **Grid Layouts:** 2-column grids for features and quick actions to maximize horizontal space
+  - **Icon Sizing:** Smaller emoji icons (2rem) and compact button layouts
+  - **Typography:** Smaller text (0.75rem-0.875rem) while maintaining readability
+
+- **Modal State Management:**
+  - **uiStore Integration:** `isSourcesModalOpen` and `selectedTopicForSources` states
+  - **Event Handling:** Add/Remove Sources button opens modal, close controls available
+  - **File Processing:** Local state management for uploaded files and form inputs
+
 ## 10. Conclusion and Overall Frontend Summary
 
 Study4Me's frontend prototype demonstrates the Neobrutalist design principles with a clean, functional dashboard and interactive chat interface. The current implementation focuses on:
@@ -220,6 +251,7 @@ Study4Me's frontend prototype demonstrates the Neobrutalist design principles wi
 - **Bold visual hierarchy** with thick black borders and high-contrast colors
 - **Clear user actions** through color-coded button system
 - **Interactive chat modal** for study sessions with topic sources and content generation tools
+- **Comprehensive sources modal** for file upload, website scraping, and YouTube video integration
 - **Functional layout** that prioritizes learning workflows
 - **Scalable component structure** ready for future expansion
 
