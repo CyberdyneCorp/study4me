@@ -1,0 +1,27 @@
+/* Simple CSS without Tailwind for debugging */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #FFF200;
+  font-family: 'Inter', sans-serif;
+  color: #000000;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: bold;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+}
+
+button:hover {
+  opacity: 0.9;
+}
