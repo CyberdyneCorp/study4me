@@ -74,5 +74,25 @@ export const topicActions = {
       topics: state.topics.filter(topic => topic.id !== id),
       selectedTopic: state.selectedTopic?.id === id ? null : state.selectedTopic
     }))
+  },
+  
+  createTopic: (name: string, description: string) => {
+    const now = new Date().toISOString().split('T')[0]
+    const newTopic: Topic = {
+      id: Math.random().toString(36).substr(2, 9),
+      title: name,
+      description: description,
+      status: 'pending',
+      createdAt: now,
+      updatedAt: now,
+      sources: []
+    }
+    
+    topicStore.update(state => ({
+      ...state,
+      topics: [newTopic, ...state.topics]
+    }))
+    
+    return newTopic
   }
 }

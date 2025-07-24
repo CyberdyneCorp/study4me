@@ -8,6 +8,7 @@
   import ChatModal from '../components/ChatModal.svelte'
   import SourcesModal from '../components/SourcesModal.svelte'
   import ConfirmModal from '../components/ConfirmModal.svelte'
+  import TopicCreationModal from '../components/TopicCreationModal.svelte'
   
   onMount(() => {
     topicActions.setTopics([
@@ -101,6 +102,20 @@
     uiActions.closeConfirmModal()
   }
   
+  function handleCreateTopicClick() {
+    uiActions.openTopicCreationModal()
+  }
+  
+  function handleTopicCreationModalClose() {
+    uiActions.closeTopicCreationModal()
+  }
+  
+  function handleTopicCreate(event: CustomEvent) {
+    const { name, description } = event.detail
+    topicActions.createTopic(name, description)
+    uiActions.closeTopicCreationModal()
+  }
+  
   $: selectedTopic = $uiStore.selectedTopicForChat 
     ? $topicStore.topics.find(t => t.id === $uiStore.selectedTopicForChat)
     : null
@@ -131,6 +146,26 @@
   
   <!-- Topic Cards -->
   <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+    <!-- Create New Topic Card -->
+    <button 
+      on:click={handleCreateTopicClick}
+      class="bg-white border-4 border-dashed border-gray-400 rounded p-6 relative hover:border-brand-blue hover:bg-blue-50 transition-colors duration-200 cursor-pointer group"
+    >
+      <div class="flex flex-col items-center justify-center h-full min-h-48">
+        <div class="w-16 h-16 bg-brand-blue rounded-full flex items-center justify-center mb-4 group-hover:bg-opacity-90 transition-colors">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+            <path d="M12 2v20M2 12h20" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h3 class="text-xl font-bold mb-2 text-gray-600 group-hover:text-brand-blue font-mono transition-colors">
+          Create New Topic
+        </h3>
+        <p class="text-sm text-gray-500 text-center group-hover:text-gray-700 transition-colors">
+          Add a new study topic to get started
+        </p>
+      </div>
+    </button>
+    
     {#each $topicStore.topics as topic}
       <div class="bg-white border-4 border-black rounded p-6 relative">
         <button 
@@ -197,7 +232,8 @@
           <h3 class="text-xl font-bold mb-4 text-black font-mono">No topics yet</h3>
           <p class="text-secondary-text mb-6">Create your first study topic to get started</p>
           <button 
-            class="bg-brand-blue text-white border-4 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer"
+            on:click={handleCreateTopicClick}
+            class="bg-brand-blue text-white border-4 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer hover:bg-opacity-90"
           >
             Create Topic
           </button>
@@ -232,4 +268,11 @@
   isDangerous={$uiStore.confirmModalData?.isDangerous || false}
   on:confirm={() => $uiStore.confirmModalData?.onConfirm()}
   on:cancel={handleConfirmModalCancel}
+/>
+
+<!-- Topic Creation Modal -->
+<TopicCreationModal 
+  isOpen={$uiStore.isTopicCreationModalOpen}
+  on:close={handleTopicCreationModalClose}
+  on:create={handleTopicCreate}
 />

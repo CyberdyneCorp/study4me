@@ -10,6 +10,7 @@ export interface UIState {
   isConfirmModalOpen: boolean
   confirmModalData: ConfirmModalData | null
   isWalletModalOpen: boolean
+  isTopicCreationModalOpen: boolean
   notifications: Notification[]
   theme: 'light' | 'dark'
 }
@@ -40,6 +41,7 @@ const initialState: UIState = {
   isConfirmModalOpen: false,
   confirmModalData: null,
   isWalletModalOpen: false,
+  isTopicCreationModalOpen: false,
   notifications: [],
   theme: 'light'
 }
@@ -151,5 +153,19 @@ export const uiActions = {
   
   setTheme: (theme: 'light' | 'dark') => {
     uiStore.update(state => ({ ...state, theme }))
+  },
+  
+  openTopicCreationModal: () => {
+    uiStore.update(state => ({
+      ...state,
+      isTopicCreationModalOpen: true
+    }))
+  },
+  
+  closeTopicCreationModal: () => {
+    uiStore.update(state => ({
+      ...state,
+      isTopicCreationModalOpen: false
+    }))
   }
 }
