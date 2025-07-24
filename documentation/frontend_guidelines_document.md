@@ -188,17 +188,25 @@ Please don't use Router library
 
 ### Chat Modal Interface
 
-- **Modal Layout:** Centered overlay with three distinct sections:
+- **Modal Layout:** Centered overlay with four distinct sections:
   - **Header (White):** Topic title, subtitle, and pink close button
   - **Sources Sidebar (Yellow #FFF200):** 25% width, lists all topic sources with blue hover effects
-  - **Chat Area (White):** Main conversation interface with message bubbles
-  - **Input Area (White):** Bottom textarea with blue Send button
+  - **Chat Area (White):** Main conversation interface with message bubbles and input area
+  - **Session Sidebar (Yellow #FFF200):** 20% width, content generation actions
 
 - **Interactive Features:**
   - **Source Hover Effects:** Items change to blue background (#0050FF) with white text on hover
   - **Real-time Chat:** Simulated conversation with typing indicators
   - **Keyboard Shortcuts:** Enter to send, Shift+Enter for new line
+  - **Session Actions:** Three pink buttons for content generation features
   - **Responsive Design:** 72rem max-width, 80vh height, centered positioning
+
+- **Session Actions Panel:**
+  - **Create Podcast:** Pink button (#EC4899) with play icon for audio content generation
+  - **Create Mindmap:** Pink button (#EC4899) with network icon for visual knowledge mapping
+  - **Summarize Content:** Pink button (#EC4899) with document icon for content summarization
+  - **Consistent Sizing:** All buttons 3rem height with 16px SVG icons and white text
+  - **No Hover Effects:** Static pink styling for clear action visibility
 
 - **Modal State Management:**
   - **uiStore Integration:** `isChatModalOpen` and `selectedTopicForChat` states
@@ -211,7 +219,7 @@ Study4Me's frontend prototype demonstrates the Neobrutalist design principles wi
 
 - **Bold visual hierarchy** with thick black borders and high-contrast colors
 - **Clear user actions** through color-coded button system
-- **Interactive chat modal** for study sessions with topic sources
+- **Interactive chat modal** for study sessions with topic sources and content generation tools
 - **Functional layout** that prioritizes learning workflows
 - **Scalable component structure** ready for future expansion
 

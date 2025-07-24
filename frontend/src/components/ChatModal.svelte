@@ -201,6 +201,50 @@
             </div>
           </div>
         </div>
+        
+        <!-- Right Sidebar - Session Actions -->
+        <div style="width: 20%; border-left: 4px solid black; padding: 1rem; background-color: #FFF200;">
+          <h3 style="font-size: 1.125rem; font-weight: bold; margin-bottom: 1rem; font-family: 'IBM Plex Mono', monospace; color: black;">
+            Session
+          </h3>
+          
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <button 
+              style="width: 100%; height: 3rem; padding: 0.75rem; border: 2px solid black; background-color: #EC4899; color: white; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-weight: bold; font-size: 0.875rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+              </svg>
+              Create Podcast
+            </button>
+            
+            <button 
+              style="width: 100%; height: 3rem; padding: 0.75rem; border: 2px solid black; background-color: #EC4899; color: white; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-weight: bold; font-size: 0.875rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="9" cy="9" r="2"/>
+                <circle cx="15" cy="15" r="2"/>
+                <circle cx="9" cy="15" r="2"/>
+                <circle cx="15" cy="9" r="2"/>
+                <path d="M9 7v4m0 0v4m0-4h6m-6 0H3m6-6h6m-6 6v4"/>
+                <line x1="7" y1="9" x2="17" y2="9"/>
+                <line x1="9" y1="7" x2="9" y2="17"/>
+                <line x1="15" y1="7" x2="15" y2="17"/>
+                <line x1="7" y1="15" x2="17" y2="15"/>
+              </svg>
+              Create Mindmap
+            </button>
+            
+            <button 
+              style="width: 100%; height: 3rem; padding: 0.75rem; border: 2px solid black; background-color: #EC4899; color: white; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-weight: bold; font-size: 0.875rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 3h18v18H3V3zm2 2v14h14V5H5zm2 2h10v2H7V7zm0 4h10v2H7v-2zm0 4h7v2H7v-2z"/>
+              </svg>
+              Summarize Content
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
