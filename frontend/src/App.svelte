@@ -23,7 +23,7 @@
         Study4Me
       </h1>
       <div style="display: flex; align-items: center; gap: 1rem;">
-        <a href="#" style="color: black; text-decoration: none; font-family: 'IBM Plex Mono', monospace;">Dashboard</a>
+        <span style="color: black; font-family: 'IBM Plex Mono', monospace; font-weight: bold;">Dashboard</span>
         <div style="display: flex; align-items: center; gap: 0.5rem;">
           <span style="font-family: 'IBM Plex Mono', monospace; font-weight: bold; color: black; font-size: 0.875rem;">
             MCP:
@@ -78,10 +78,10 @@
         </div>
         <div style="display: flex; gap: 0.5rem;">
           <button style="background-color: #0050FF; color: white; border: 4px solid black; border-radius: 4px; padding: 0.5rem 1rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer; font-size: 0.875rem;">
-            View
+            Study
           </button>
-          <button style="background-color: white; color: black; border: 4px solid black; border-radius: 4px; padding: 0.5rem 1rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer; font-size: 0.875rem;">
-            Edit
+          <button style="background-color: #EC4899; color: white; border: 4px solid black; border-radius: 4px; padding: 0.5rem 1rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer; font-size: 0.875rem;">
+            Add/Remove Sources
           </button>
         </div>
       </div>
@@ -112,10 +112,10 @@
         </div>
         <div style="display: flex; gap: 0.5rem;">
           <button style="background-color: #0050FF; color: white; border: 4px solid black; border-radius: 4px; padding: 0.5rem 1rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer; font-size: 0.875rem;">
-            View
+            Study
           </button>
-          <button style="background-color: white; color: black; border: 4px solid black; border-radius: 4px; padding: 0.5rem 1rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer; font-size: 0.875rem;">
-            Edit
+          <button style="background-color: #EC4899; color: white; border: 4px solid black; border-radius: 4px; padding: 0.5rem 1rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer; font-size: 0.875rem;">
+            Add/Remove Sources
           </button>
         </div>
       </div>
