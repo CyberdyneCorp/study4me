@@ -11,6 +11,7 @@
   import TopicCreationModal from '../components/TopicCreationModal.svelte'
   
   onMount(() => {
+    // Sample topics for demonstration
     topicActions.setTopics([
       {
         id: '1',
@@ -146,25 +147,27 @@
   
   <!-- Topic Cards -->
   <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-    <!-- Create New Topic Card -->
-    <button 
-      on:click={handleCreateTopicClick}
-      class="bg-white border-4 border-dashed border-gray-400 rounded p-6 relative hover:border-brand-blue hover:bg-blue-50 transition-colors duration-200 cursor-pointer group"
-    >
-      <div class="flex flex-col items-center justify-center h-full min-h-48">
-        <div class="w-16 h-16 bg-brand-blue rounded-full flex items-center justify-center mb-4 group-hover:bg-opacity-90 transition-colors">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
-            <path d="M12 2v20M2 12h20" stroke="white" stroke-width="2" stroke-linecap="round"/>
-          </svg>
+    {#if $topicStore.topics.length > 0}
+      <!-- Create New Topic Card - Only show when topics exist -->
+      <button 
+        on:click={handleCreateTopicClick}
+        class="bg-white border-4 border-dashed border-gray-400 rounded p-6 relative hover:border-brand-blue hover:bg-blue-50 transition-colors duration-200 cursor-pointer group"
+      >
+        <div class="flex flex-col items-center justify-center h-full min-h-48">
+          <div class="w-16 h-16 bg-brand-blue rounded-full flex items-center justify-center mb-4 group-hover:bg-opacity-90 transition-colors">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+              <path d="M12 2v20M2 12h20" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold mb-2 text-gray-600 group-hover:text-brand-blue font-mono transition-colors">
+            Create New Topic
+          </h3>
+          <p class="text-sm text-gray-500 text-center group-hover:text-gray-700 transition-colors">
+            Add a new study topic to get started
+          </p>
         </div>
-        <h3 class="text-xl font-bold mb-2 text-gray-600 group-hover:text-brand-blue font-mono transition-colors">
-          Create New Topic
-        </h3>
-        <p class="text-sm text-gray-500 text-center group-hover:text-gray-700 transition-colors">
-          Add a new study topic to get started
-        </p>
-      </div>
-    </button>
+      </button>
+    {/if}
     
     {#each $topicStore.topics as topic}
       <div class="bg-white border-4 border-black rounded p-6 relative flex flex-col min-h-80">
