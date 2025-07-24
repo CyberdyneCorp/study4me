@@ -1,27 +1,34 @@
-/* Simple CSS without Tailwind for debugging */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .neo-card {
+    @apply bg-white border-4 border-black rounded;
+  }
 }
 
-body {
-  background-color: #FFF200;
-  font-family: 'Inter', sans-serif;
-  color: #000000;
-}
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: 'IBM Plex Mono', monospace;
-  font-weight: bold;
-}
+  body {
+    @apply bg-brand-yellow font-inter text-black;
+  }
 
-button {
-  cursor: pointer;
-  border: none;
-  font-family: inherit;
-}
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-mono font-bold;
+  }
 
-button:hover {
-  opacity: 0.9;
+  button {
+    @apply cursor-pointer border-none;
+    font-family: inherit;
+  }
+
+  button:hover {
+    @apply opacity-90;
+  }
 }

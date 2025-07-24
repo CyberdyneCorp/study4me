@@ -9,6 +9,7 @@ export interface UIState {
   selectedTopicForSources: string | null
   isConfirmModalOpen: boolean
   confirmModalData: ConfirmModalData | null
+  isWalletModalOpen: boolean
   notifications: Notification[]
   theme: 'light' | 'dark'
 }
@@ -38,6 +39,7 @@ const initialState: UIState = {
   selectedTopicForSources: null,
   isConfirmModalOpen: false,
   confirmModalData: null,
+  isWalletModalOpen: false,
   notifications: [],
   theme: 'light'
 }
@@ -106,6 +108,20 @@ export const uiActions = {
       ...state,
       isConfirmModalOpen: false,
       confirmModalData: null
+    }))
+  },
+  
+  openWalletModal: () => {
+    uiStore.update(state => ({
+      ...state,
+      isWalletModalOpen: true
+    }))
+  },
+  
+  closeWalletModal: () => {
+    uiStore.update(state => ({
+      ...state,
+      isWalletModalOpen: false
     }))
   },
   

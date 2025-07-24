@@ -61,7 +61,7 @@
 {#if isOpen}
   <!-- Modal Backdrop -->
   <div 
-    style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 1000;"
+    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
     on:click={handleOutsideClick}
     on:keydown={(e) => e.key === 'Escape' && handleClose()}
     role="dialog"
@@ -70,18 +70,18 @@
   >
     <!-- Modal Container -->
     <div 
-      style="background-color: white; border: 4px solid black; width: 100%; max-width: 72rem; height: 80vh; display: flex; flex-direction: column;"
+      class="bg-white border-4 border-black w-full max-w-6xl h-4/5 flex flex-col"
     >
       <!-- Modal Header -->
-      <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 4px solid black; background-color: white;">
+      <div class="flex justify-between items-center p-4 border-b-4 border-black bg-white">
         <div>
-          <h2 id="modal-title" style="font-size: 1.25rem; font-weight: bold; font-family: 'IBM Plex Mono', monospace; color: black; margin-bottom: 0.25rem;">
+          <h2 id="modal-title" class="text-xl font-bold font-mono text-black mb-1">
             Study: {topicTitle}
           </h2>
-          <p style="font-size: 0.875rem; color: #666;">Ask questions about your topic sources</p>
+          <p class="text-sm text-gray-600">Ask questions about your topic sources</p>
         </div>
         <button 
-          style="background-color: #EC4899; color: white; border: 2px solid black; border-radius: 4px; padding: 0.5rem 0.75rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer; font-size: 1.125rem;"
+          class="bg-brand-pink text-white border-2 border-black rounded px-3 py-2 font-mono font-bold cursor-pointer text-lg hover:bg-opacity-90"
           on:click={handleClose}
           aria-label="Close modal"
         >
@@ -90,38 +90,22 @@
       </div>
       
       <!-- Modal Body - Chat Interface -->
-      <div style="display: flex; flex: 1; overflow: hidden;">
+      <div class="flex flex-1 overflow-hidden">
         <!-- Left Sidebar - Sources List -->
-        <div style="width: 25%; border-right: 4px solid black; padding: 1rem; overflow-y: auto; background-color: #FFF200;">
-          <h3 style="font-size: 1.125rem; font-weight: bold; margin-bottom: 1rem; font-family: 'IBM Plex Mono', monospace; color: black;">
+        <div class="w-1/4 border-r-4 border-black p-4 overflow-y-auto bg-brand-yellow">
+          <h3 class="text-lg font-bold mb-4 font-mono text-black">
             Sources
           </h3>
           {#if sources.length === 0}
-            <p style="font-size: 0.875rem; color: #666;">No sources available</p>
+            <p class="text-sm text-gray-600">No sources available</p>
           {:else}
-            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <div class="flex flex-col gap-2">
               {#each sources as source}
-                <div 
-                  style="padding: 0.75rem; border: 2px solid black; background-color: white; cursor: pointer; transition: all 0.3s ease;"
-                  on:mouseenter={(e) => {
-                    e.target.style.backgroundColor = '#0050FF';
-                    const title = e.target.querySelector('.source-title');
-                    const type = e.target.querySelector('.source-type');
-                    if (title) title.style.color = 'white';
-                    if (type) type.style.color = 'white';
-                  }}
-                  on:mouseleave={(e) => {
-                    e.target.style.backgroundColor = 'white';
-                    const title = e.target.querySelector('.source-title');
-                    const type = e.target.querySelector('.source-type');
-                    if (title) title.style.color = 'black';
-                    if (type) type.style.color = '#666';
-                  }}
-                >
-                  <div class="source-title" style="font-weight: bold; font-size: 0.875rem; font-family: 'IBM Plex Mono', monospace; color: black; transition: color 0.3s ease;">
+                <div class="p-3 border-2 border-black bg-white cursor-pointer transition-all duration-300 hover:bg-brand-blue group">
+                  <div class="font-bold text-sm font-mono text-black group-hover:text-white transition-colors duration-300">
                     {source.title}
                   </div>
-                  <div class="source-type" style="font-size: 0.75rem; color: #666; text-transform: uppercase; transition: color 0.3s ease;">
+                  <div class="text-xs text-gray-600 uppercase group-hover:text-white transition-colors duration-300">
                     {source.type}
                   </div>
                 </div>
@@ -131,30 +115,28 @@
         </div>
         
         <!-- Center - Chat Messages -->
-        <div style="flex: 1; display: flex; flex-direction: column;">
+        <div class="flex-1 flex flex-col">
           <!-- Messages Container -->
-          <div style="flex: 1; padding: 1rem; overflow-y: auto; background-color: #f9f9f9;">
+          <div class="flex-1 p-4 overflow-y-auto bg-gray-50">
             {#if chatMessages.length === 0}
-              <div style="text-align: center; color: #666; margin-top: 2rem;">
-                <p style="font-size: 1.125rem; font-weight: bold; margin-bottom: 0.5rem; font-family: 'IBM Plex Mono', monospace;">
+              <div class="text-center text-gray-600 mt-8">
+                <p class="text-lg font-bold mb-2 font-mono">
                   Start a conversation
                 </p>
-                <p style="font-size: 0.875rem;">Ask questions about your topic to get insights from your sources.</p>
+                <p class="text-sm">Ask questions about your topic to get insights from your sources.</p>
               </div>
             {:else}
-              <div style="display: flex; flex-direction: column; gap: 1rem;">
+              <div class="flex flex-col gap-4">
                 {#each chatMessages as message}
-                  <div style="display: flex; {message.type === 'user' ? 'justify-content: flex-end;' : 'justify-content: flex-start;'}">
-                    <div 
-                      style="max-width: 70%; padding: 0.75rem; border: 2px solid black; background-color: {message.type === 'user' ? '#DBEAFE' : 'white'};"
-                    >
-                      <div style="font-weight: bold; font-size: 0.75rem; margin-bottom: 0.25rem; text-transform: uppercase; font-family: 'IBM Plex Mono', monospace;">
+                  <div class="flex {message.type === 'user' ? 'justify-end' : 'justify-start'}">
+                    <div class="max-w-sm lg:max-w-md xl:max-w-lg p-3 border-2 border-black {message.type === 'user' ? 'bg-blue-100' : 'bg-white'}">
+                      <div class="font-bold text-xs mb-1 uppercase font-mono">
                         {message.type === 'user' ? 'You' : 'Study4Me AI'}
                       </div>
-                      <div style="font-size: 0.875rem; line-height: 1.5;">
+                      <div class="text-sm leading-6">
                         {message.content}
                       </div>
-                      <div style="font-size: 0.75rem; color: #666; margin-top: 0.5rem;">
+                      <div class="text-xs text-gray-600 mt-2">
                         {message.timestamp.toLocaleTimeString()}
                       </div>
                     </div>
@@ -162,12 +144,12 @@
                 {/each}
                 
                 {#if isLoading}
-                  <div style="display: flex; justify-content: flex-start;">
-                    <div style="max-width: 70%; padding: 0.75rem; border: 2px solid black; background-color: white;">
-                      <div style="font-weight: bold; font-size: 0.75rem; margin-bottom: 0.25rem; text-transform: uppercase; font-family: 'IBM Plex Mono', monospace;">
+                  <div class="flex justify-start">
+                    <div class="max-w-sm lg:max-w-md xl:max-w-lg p-3 border-2 border-black bg-white">
+                      <div class="font-bold text-xs mb-1 uppercase font-mono">
                         Study4Me AI
                       </div>
-                      <div style="font-size: 0.875rem;">
+                      <div class="text-sm">
                         <span>Thinking...</span>
                       </div>
                     </div>
@@ -178,49 +160,45 @@
           </div>
           
           <!-- Message Input -->
-          <div style="padding: 1rem; border-top: 4px solid black; background-color: white;">
-            <div style="display: flex; gap: 0.5rem;">
+          <div class="p-4 border-t-4 border-black bg-white">
+            <div class="flex gap-2">
               <textarea
                 bind:value={currentMessage}
                 on:keydown={handleKeyPress}
                 placeholder="Ask a question about your topic..."
-                style="flex: 1; padding: 0.75rem; border: 2px solid black; resize: none; font-family: Inter, sans-serif; min-height: 60px; max-height: 120px;"
+                class="flex-1 p-3 border-2 border-black resize-none font-inter min-h-15 max-h-30"
                 rows="2"
                 disabled={isLoading}
               ></textarea>
               <button 
-                style="background-color: #0050FF; color: white; border: 4px solid black; border-radius: 4px; padding: 0.75rem 1.5rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer; {!currentMessage.trim() || isLoading ? 'opacity: 0.5; cursor: not-allowed;' : ''}"
+                class="bg-brand-blue text-white border-4 border-black rounded px-6 py-3 font-mono font-bold cursor-pointer {!currentMessage.trim() || isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-opacity-90'}"
                 on:click={handleSendMessage}
                 disabled={!currentMessage.trim() || isLoading}
               >
                 Send
               </button>
             </div>
-            <div style="font-size: 0.75rem; color: #666; margin-top: 0.5rem;">
+            <div class="text-xs text-gray-600 mt-2">
               Press Enter to send, Shift+Enter for new line
             </div>
           </div>
         </div>
         
         <!-- Right Sidebar - Session Actions -->
-        <div style="width: 20%; border-left: 4px solid black; padding: 1rem; background-color: #FFF200;">
-          <h3 style="font-size: 1.125rem; font-weight: bold; margin-bottom: 1rem; font-family: 'IBM Plex Mono', monospace; color: black;">
+        <div class="w-1/5 border-l-4 border-black p-4 bg-brand-yellow">
+          <h3 class="text-lg font-bold mb-4 font-mono text-black">
             Session
           </h3>
           
-          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-            <button 
-              style="width: 100%; height: 3rem; padding: 0.75rem; border: 2px solid black; background-color: #EC4899; color: white; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-weight: bold; font-size: 0.875rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"
-            >
+          <div class="flex flex-col gap-3">
+            <button class="w-full h-12 p-3 border-2 border-black bg-brand-pink text-white cursor-pointer font-mono font-bold text-sm flex items-center justify-center gap-2 hover:bg-opacity-90">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
               </svg>
               Create Podcast
             </button>
             
-            <button 
-              style="width: 100%; height: 3rem; padding: 0.75rem; border: 2px solid black; background-color: #EC4899; color: white; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-weight: bold; font-size: 0.875rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"
-            >
+            <button class="w-full h-12 p-3 border-2 border-black bg-brand-pink text-white cursor-pointer font-mono font-bold text-sm flex items-center justify-center gap-2 hover:bg-opacity-90">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <circle cx="9" cy="9" r="2"/>
                 <circle cx="15" cy="15" r="2"/>
@@ -235,9 +213,7 @@
               Create Mindmap
             </button>
             
-            <button 
-              style="width: 100%; height: 3rem; padding: 0.75rem; border: 2px solid black; background-color: #EC4899; color: white; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-weight: bold; font-size: 0.875rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"
-            >
+            <button class="w-full h-12 p-3 border-2 border-black bg-brand-pink text-white cursor-pointer font-mono font-bold text-sm flex items-center justify-center gap-2 hover:bg-opacity-90">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M3 3h18v18H3V3zm2 2v14h14V5H5zm2 2h10v2H7V7zm0 4h10v2H7v-2zm0 4h7v2H7v-2z"/>
               </svg>

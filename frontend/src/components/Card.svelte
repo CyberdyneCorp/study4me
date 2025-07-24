@@ -11,7 +11,7 @@
 
 <div class="neo-card {paddingClasses}">
   {#if title}
-    <h3 class="text-xl font-bold mb-4 text-black" style="font-family: 'IBM Plex Mono', monospace;">{title}</h3>
+    <h3 class="text-xl font-bold mb-4 text-black font-mono">{title}</h3>
   {/if}
   <slot />
 </div>

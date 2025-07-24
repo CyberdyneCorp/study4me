@@ -88,7 +88,7 @@
 {#if isOpen}
   <!-- Modal Backdrop -->
   <div 
-    style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 1000;"
+    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
     on:click={handleOutsideClick}
     on:keydown={(e) => e.key === 'Escape' && handleClose()}
     role="dialog"
@@ -97,18 +97,18 @@
   >
     <!-- Modal Container -->
     <div 
-      style="background-color: white; border: 4px solid black; width: 100%; max-width: 56rem; height: 80vh; display: flex; flex-direction: column;"
+      class="bg-white border-4 border-black w-full max-w-4xl h-4/5 flex flex-col"
     >
       <!-- Modal Header -->
-      <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 4px solid black; background-color: white;">
+      <div class="flex justify-between items-center p-4 border-b-4 border-black bg-white">
         <div>
-          <h2 id="sources-modal-title" style="font-size: 1.25rem; font-weight: bold; font-family: 'IBM Plex Mono', monospace; color: black; margin-bottom: 0.25rem;">
+          <h2 id="sources-modal-title" class="text-xl font-bold font-mono text-black mb-1">
             Add sources: {topicTitle}
           </h2>
-          <p style="font-size: 0.875rem; color: #666;">Upload files, scrape websites, or add YouTube videos to enhance your topic</p>
+          <p class="text-sm text-gray-600">Upload files, scrape websites, or add YouTube videos to enhance your topic</p>
         </div>
         <button 
-          style="background-color: #EC4899; color: white; border: 2px solid black; border-radius: 4px; padding: 0.5rem 0.75rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer; font-size: 1.125rem;"
+          class="bg-brand-pink text-white border-2 border-black rounded px-3 py-2 font-mono font-bold cursor-pointer text-lg hover:bg-opacity-90"
           on:click={handleClose}
           aria-label="Close modal"
         >
@@ -117,23 +117,23 @@
       </div>
       
       <!-- Modal Body -->
-      <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+      <div class="flex-1 flex flex-col overflow-hidden">
         <!-- Tab Navigation -->
-        <div style="display: flex; border-bottom: 4px solid black; background-color: #FFF200;">
+        <div class="flex border-b-4 border-black bg-brand-yellow">
           <button 
-            style="flex: 1; padding: 1rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; font-size: 0.875rem; border: none; border-right: 2px solid black; cursor: pointer; background-color: {activeTab === 'upload' ? 'white' : 'transparent'}; color: black;"
+            class="flex-1 p-4 font-mono font-bold text-sm border-none border-r-2 border-black cursor-pointer text-black {activeTab === 'upload' ? 'bg-white' : 'bg-transparent'}"
             on:click={() => setActiveTab('upload')}
           >
             📁 Upload Files
           </button>
           <button 
-            style="flex: 1; padding: 1rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; font-size: 0.875rem; border: none; border-right: 2px solid black; cursor: pointer; background-color: {activeTab === 'website' ? 'white' : 'transparent'}; color: black;"
+            class="flex-1 p-4 font-mono font-bold text-sm border-none border-r-2 border-black cursor-pointer text-black {activeTab === 'website' ? 'bg-white' : 'bg-transparent'}"
             on:click={() => setActiveTab('website')}
           >
             🌐 Website
           </button>
           <button 
-            style="flex: 1; padding: 1rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; font-size: 0.875rem; border: none; cursor: pointer; background-color: {activeTab === 'youtube' ? 'white' : 'transparent'}; color: black;"
+            class="flex-1 p-4 font-mono font-bold text-sm border-none cursor-pointer text-black {activeTab === 'youtube' ? 'bg-white' : 'bg-transparent'}"
             on:click={() => setActiveTab('youtube')}
           >
             📺 YouTube
@@ -141,26 +141,26 @@
         </div>
         
         <!-- Tab Content -->
-        <div style="flex: 1; padding: 2rem; overflow-y: auto; background-color: #f9f9f9;">
+        <div class="flex-1 p-8 overflow-y-auto bg-gray-50">
           {#if activeTab === 'upload'}
             <!-- Upload Tab -->
-            <div style="height: 100%; display: flex; flex-direction: column; gap: 1.5rem;">
+            <div class="h-full flex flex-col gap-6">
               <!-- Drag & Drop Area -->
               <div 
-                style="border: 3px dashed black; background-color: {isDragging ? '#FFF200' : 'white'}; padding: 3rem; text-align: center; cursor: pointer; transition: background-color 0.3s ease;"
+                class="border-4 border-dashed border-black p-12 text-center cursor-pointer transition-colors duration-300 {isDragging ? 'bg-brand-yellow' : 'bg-white'}"
                 on:dragover={handleDragOver}
                 on:dragleave={handleDragLeave}
                 on:drop={handleDrop}
                 on:click={() => document.getElementById('file-input')?.click()}
               >
-                <div style="font-size: 3rem; margin-bottom: 1rem;">📤</div>
-                <h3 style="font-size: 1.125rem; font-weight: bold; font-family: 'IBM Plex Mono', monospace; margin-bottom: 0.5rem;">
+                <div class="text-5xl mb-4">📤</div>
+                <h3 class="text-lg font-bold font-mono mb-2">
                   Upload sources
                 </h3>
-                <p style="color: #666; margin-bottom: 1rem;">
-                  Drag & drop or <span style="color: #0050FF; text-decoration: underline; cursor: pointer;">choose file</span> to upload
+                <p class="text-gray-600 mb-4">
+                  Drag & drop or <span class="text-brand-blue underline cursor-pointer">choose file</span> to upload
                 </p>
-                <p style="font-size: 0.875rem; color: #999;">
+                <p class="text-sm text-gray-500">
                   Supported file types: PDF, .txt, Markdown, Audio (e.g. mp3)
                 </p>
               </div>
@@ -170,25 +170,25 @@
                 type="file"
                 multiple
                 accept=".pdf,.txt,.md,.mp3,.wav,.m4a"
-                style="display: none;"
+                class="hidden"
                 on:change={handleFileSelect}
               />
               
               <!-- Uploaded Files List -->
               {#if uploadedFiles.length > 0}
-                <div style="border: 2px solid black; background-color: white; padding: 1rem;">
-                  <h4 style="font-weight: bold; font-family: 'IBM Plex Mono', monospace; margin-bottom: 1rem;">
+                <div class="border-2 border-black bg-white p-4">
+                  <h4 class="font-bold font-mono mb-4">
                     Uploaded Files ({uploadedFiles.length})
                   </h4>
-                  <div style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto;">
+                  <div class="flex flex-col gap-2 max-h-48 overflow-y-auto">
                     {#each uploadedFiles as file, index}
-                      <div style="display: flex; justify-content: between; align-items: center; padding: 0.75rem; border: 1px solid black; background-color: #f9f9f9;">
-                        <div style="flex: 1;">
-                          <div style="font-weight: bold; font-size: 0.875rem;">{file.name}</div>
-                          <div style="font-size: 0.75rem; color: #666;">{formatFileSize(file.size)} • {file.type}</div>
+                      <div class="flex justify-between items-center p-3 border border-black bg-gray-50">
+                        <div class="flex-1">
+                          <div class="font-bold text-sm">{file.name}</div>
+                          <div class="text-xs text-gray-600">{formatFileSize(file.size)} • {file.type}</div>
                         </div>
                         <button 
-                          style="background-color: #FF2C2C; color: white; border: 1px solid black; border-radius: 2px; padding: 0.25rem 0.5rem; cursor: pointer; font-size: 0.75rem;"
+                          class="bg-brand-red text-white border border-black rounded px-2 py-1 cursor-pointer text-xs hover:bg-opacity-90"
                           on:click={() => removeFile(index)}
                         >
                           Remove
@@ -202,30 +202,30 @@
             
           {:else if activeTab === 'website'}
             <!-- Website Tab -->
-            <div style="height: 100%; display: flex; flex-direction: column; gap: 1rem;">
-              <div style="text-align: center; margin-bottom: 1rem;">
-                <div style="font-size: 2rem; margin-bottom: 0.5rem;">🌐</div>
-                <h3 style="font-size: 1rem; font-weight: bold; font-family: 'IBM Plex Mono', monospace; margin-bottom: 0.25rem;">
+            <div class="h-full flex flex-col gap-4">
+              <div class="text-center mb-4">
+                <div class="text-3xl mb-2">🌐</div>
+                <h3 class="text-base font-bold font-mono mb-1">
                   Scrape Website
                 </h3>
-                <p style="color: #666; font-size: 0.875rem;">
+                <p class="text-gray-600 text-sm">
                   Enter a website URL to extract and analyze its content
                 </p>
               </div>
               
-              <div style="background-color: white; border: 2px solid black; padding: 1rem;">
-                <label style="display: block; font-weight: bold; font-family: 'IBM Plex Mono', monospace; margin-bottom: 0.5rem; font-size: 0.875rem;">
+              <div class="bg-white border-2 border-black p-4">
+                <label class="block font-bold font-mono mb-2 text-sm">
                   Website URL
                 </label>
-                <div style="display: flex; gap: 0.5rem;">
+                <div class="flex gap-2">
                   <input 
                     type="url"
                     bind:value={websiteUrl}
                     placeholder="https://example.com"
-                    style="flex: 1; padding: 0.5rem; border: 2px solid black; font-family: Inter, sans-serif; font-size: 0.875rem;"
+                    class="flex-1 p-2 border-2 border-black font-inter text-sm"
                   />
                   <button 
-                    style="background-color: #EC4899; color: white; border: 2px solid black; border-radius: 4px; padding: 0.5rem 1rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer; font-size: 0.875rem;"
+                    class="bg-brand-pink text-white border-2 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer text-sm hover:bg-opacity-90"
                     on:click={handleWebsiteSubmit}
                   >
                     Scrape
@@ -233,21 +233,21 @@
                 </div>
               </div>
               
-              <div style="background-color: white; border: 2px solid black; padding: 1rem;">
-                <h4 style="font-weight: bold; font-family: 'IBM Plex Mono', monospace; margin-bottom: 0.75rem; font-size: 0.875rem;">
+              <div class="bg-white border-2 border-black p-4">
+                <h4 class="font-bold font-mono mb-3 text-sm">
                   Quick Actions
                 </h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.5rem;">
-                  <button style="padding: 0.75rem; border: 2px solid black; background-color: #f9f9f9; text-align: left; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem;">
+                <div class="grid grid-cols-2 gap-2">
+                  <button class="p-3 border-2 border-black bg-gray-50 text-left cursor-pointer font-mono text-xs hover:bg-brand-yellow">
                     📄 Article/Blog
                   </button>
-                  <button style="padding: 0.75rem; border: 2px solid black; background-color: #f9f9f9; text-align: left; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem;">
+                  <button class="p-3 border-2 border-black bg-gray-50 text-left cursor-pointer font-mono text-xs hover:bg-brand-yellow">
                     📚 Documentation
                   </button>
-                  <button style="padding: 0.75rem; border: 2px solid black; background-color: #f9f9f9; text-align: left; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem;">
+                  <button class="p-3 border-2 border-black bg-gray-50 text-left cursor-pointer font-mono text-xs hover:bg-brand-yellow">
                     📰 News Article
                   </button>
-                  <button style="padding: 0.75rem; border: 2px solid black; background-color: #f9f9f9; text-align: left; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem;">
+                  <button class="p-3 border-2 border-black bg-gray-50 text-left cursor-pointer font-mono text-xs hover:bg-brand-yellow">
                     🏢 Company Page
                   </button>
                 </div>
@@ -256,30 +256,30 @@
             
           {:else if activeTab === 'youtube'}
             <!-- YouTube Tab -->
-            <div style="height: 100%; display: flex; flex-direction: column; gap: 1rem;">
-              <div style="text-align: center; margin-bottom: 1rem;">
-                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📺</div>
-                <h3 style="font-size: 1rem; font-weight: bold; font-family: 'IBM Plex Mono', monospace; margin-bottom: 0.25rem;">
+            <div class="h-full flex flex-col gap-4">
+              <div class="text-center mb-4">
+                <div class="text-3xl mb-2">📺</div>
+                <h3 class="text-base font-bold font-mono mb-1">
                   YouTube Video
                 </h3>
-                <p style="color: #666; font-size: 0.875rem;">
+                <p class="text-gray-600 text-sm">
                   Add YouTube videos to extract transcripts and analyze content
                 </p>
               </div>
               
-              <div style="background-color: white; border: 2px solid black; padding: 1rem;">
-                <label style="display: block; font-weight: bold; font-family: 'IBM Plex Mono', monospace; margin-bottom: 0.5rem; font-size: 0.875rem;">
+              <div class="bg-white border-2 border-black p-4">
+                <label class="block font-bold font-mono mb-2 text-sm">
                   YouTube URL
                 </label>
-                <div style="display: flex; gap: 0.5rem;">
+                <div class="flex gap-2">
                   <input 
                     type="url"
                     bind:value={youtubeUrl}
                     placeholder="https://youtube.com/watch?v=..."
-                    style="flex: 1; padding: 0.5rem; border: 2px solid black; font-family: Inter, sans-serif; font-size: 0.875rem;"
+                    class="flex-1 p-2 border-2 border-black font-inter text-sm"
                   />
                   <button 
-                    style="background-color: #EC4899; color: white; border: 2px solid black; border-radius: 4px; padding: 0.5rem 1rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer; font-size: 0.875rem;"
+                    class="bg-brand-pink text-white border-2 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer text-sm hover:bg-opacity-90"
                     on:click={handleYouTubeSubmit}
                   >
                     Add Video
@@ -287,26 +287,26 @@
                 </div>
               </div>
               
-              <div style="background-color: white; border: 2px solid black; padding: 1rem;">
-                <h4 style="font-weight: bold; font-family: 'IBM Plex Mono', monospace; margin-bottom: 0.75rem; font-size: 0.875rem;">
+              <div class="bg-white border-2 border-black p-4">
+                <h4 class="font-bold font-mono mb-3 text-sm">
                   Features
                 </h4>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-                  <div style="display: flex; align-items: center; gap: 0.25rem;">
-                    <span style="color: #10B981; font-size: 0.75rem;">✓</span>
-                    <span style="font-size: 0.75rem;">Transcript extraction</span>
+                <div class="grid grid-cols-2 gap-2">
+                  <div class="flex items-center gap-1">
+                    <span class="text-green-500 text-xs">✓</span>
+                    <span class="text-xs">Transcript extraction</span>
                   </div>
-                  <div style="display: flex; align-items: center; gap: 0.25rem;">
-                    <span style="color: #10B981; font-size: 0.75rem;">✓</span>
-                    <span style="font-size: 0.75rem;">Metadata analysis</span>
+                  <div class="flex items-center gap-1">
+                    <span class="text-green-500 text-xs">✓</span>
+                    <span class="text-xs">Metadata analysis</span>
                   </div>
-                  <div style="display: flex; align-items: center; gap: 0.25rem;">
-                    <span style="color: #10B981; font-size: 0.75rem;">✓</span>
-                    <span style="font-size: 0.75rem;">Chapter detection</span>
+                  <div class="flex items-center gap-1">
+                    <span class="text-green-500 text-xs">✓</span>
+                    <span class="text-xs">Chapter detection</span>
                   </div>
-                  <div style="display: flex; align-items: center; gap: 0.25rem;">
-                    <span style="color: #10B981; font-size: 0.75rem;">✓</span>
-                    <span style="font-size: 0.75rem;">Multi-language</span>
+                  <div class="flex items-center gap-1">
+                    <span class="text-green-500 text-xs">✓</span>
+                    <span class="text-xs">Multi-language</span>
                   </div>
                 </div>
               </div>
@@ -315,19 +315,19 @@
         </div>
         
         <!-- Modal Footer -->
-        <div style="padding: 1rem; border-top: 4px solid black; background-color: white; display: flex; justify-content: space-between; align-items: center;">
-          <div style="font-size: 0.875rem; color: #666;">
+        <div class="p-4 border-t-4 border-black bg-white flex justify-between items-center">
+          <div class="text-sm text-gray-600">
             Source limit: 79 / 300
           </div>
-          <div style="display: flex; gap: 0.5rem;">
+          <div class="flex gap-2">
             <button 
-              style="background-color: #f9f9f9; color: black; border: 2px solid black; border-radius: 4px; padding: 0.75rem 1.5rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer;"
+              class="bg-gray-50 text-black border-2 border-black rounded px-6 py-3 font-mono font-bold cursor-pointer hover:bg-gray-100"
               on:click={handleClose}
             >
               Cancel
             </button>
             <button 
-              style="background-color: #0050FF; color: white; border: 2px solid black; border-radius: 4px; padding: 0.75rem 1.5rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer;"
+              class="bg-brand-blue text-white border-2 border-black rounded px-6 py-3 font-mono font-bold cursor-pointer hover:bg-opacity-90"
             >
               Save Sources
             </button>

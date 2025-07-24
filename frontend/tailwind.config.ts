@@ -5,16 +5,16 @@ export default {
   theme: {
     extend: {
       colors: {
-        'primary-bg': '#FFF200',
-        'accent-blue': '#0050FF',
-        'accent-red': '#FF2C2C',
+        'brand-yellow': '#FFF200',
+        'brand-blue': '#0050FF',
+        'brand-red': '#FF2C2C',
+        'brand-pink': '#EC4899',
         'secondary-text': '#222222',
         'border-black': '#000000'
       },
       fontFamily: {
-        'heading': ['IBM Plex Mono', 'JetBrains Mono', 'Space Mono', 'monospace'],
-        'body': ['Inter', 'DM Sans', 'Lexend Deca', 'sans-serif'],
-        'code': ['JetBrains Mono', 'monospace']
+        'mono': ['IBM Plex Mono', 'monospace'],
+        'inter': ['Inter', 'sans-serif']
       },
       borderWidth: {
         '3': '3px',

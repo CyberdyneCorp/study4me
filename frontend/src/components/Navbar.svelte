@@ -1,32 +1,41 @@
 <script lang="ts">
+  import { uiStore, uiActions } from '../stores/uiStore'
+  
   let mcpEnabled = true;
   
   function toggleMCP() {
     mcpEnabled = !mcpEnabled;
   }
+  
+  function handleConnectWallet() {
+    uiActions.openWalletModal()
+  }
 </script>
 
-<nav style="background-color: white; border-bottom: 4px solid black; padding: 1rem;">
-  <div style="max-width: 80rem; margin: 0 auto; display: flex; align-items: center; justify-content: space-between;">
-    <div style="display: flex; flex-direction: column; align-items: flex-start;">
-      <h1 style="font-size: 1.5rem; font-weight: bold; color: black; font-family: 'IBM Plex Mono', monospace; margin-bottom: 0.25rem;">
+<nav class="bg-white border-b-4 border-black p-4">
+  <div class="max-w-7xl mx-auto flex items-center justify-between">
+    <div class="flex flex-col items-start">
+      <h1 class="text-2xl font-bold text-black font-mono mb-1">
         Study4Me
       </h1>
-      <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <span style="font-family: 'IBM Plex Mono', monospace; font-weight: bold; color: black; font-size: 0.65rem;">
+      <div class="flex items-center gap-2">
+        <span class="font-mono font-bold text-black text-xs">
           MCP:
         </span>
         <button 
           on:click={toggleMCP} 
-          style="background-color: {mcpEnabled ? '#10B981' : '#EF4444'}; color: white; border: 2px solid black; border-radius: 3px; padding: 0.125rem 0.5rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer; font-size: 0.65rem;"
+          class="{mcpEnabled ? 'bg-green-500' : 'bg-red-500'} text-white border-2 border-black rounded px-2 py-0.5 font-mono font-bold cursor-pointer text-xs"
         >
           {mcpEnabled ? 'Enabled' : 'Disabled'}
         </button>
       </div>
     </div>
-    <div style="display: flex; align-items: center; gap: 1rem;">
-      <span style="color: black; font-family: 'IBM Plex Mono', monospace; font-weight: bold;">Dashboard</span>
-      <button style="background-color: #0050FF; color: white; border: 4px solid black; border-radius: 4px; padding: 0.5rem 1rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer;">
+    <div class="flex items-center gap-4">
+      <span class="text-black font-mono font-bold">Dashboard</span>
+      <button 
+        on:click={handleConnectWallet}
+        class="bg-brand-blue text-white border-4 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer"
+      >
         Connect Wallet
       </button>
     </div>

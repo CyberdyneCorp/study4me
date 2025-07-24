@@ -119,22 +119,22 @@
   }
 </script>
 
-<main style="max-width: 80rem; margin: 0 auto; padding: 2rem;">
-  <div style="margin-bottom: 2rem;">
-    <h1 style="font-size: 2.5rem; font-weight: bold; margin-bottom: 1rem; color: black; font-family: 'IBM Plex Mono', monospace;">
+<main class="max-w-7xl mx-auto p-8">
+  <div class="mb-8">
+    <h1 class="text-4xl font-bold mb-4 text-black font-mono">
       Dashboard
     </h1>
-    <p style="font-size: 1.125rem; color: #222222; margin-bottom: 1.5rem;">
+    <p class="text-lg text-secondary-text mb-6">
       Manage your study topics and knowledge graphs
     </p>
   </div>
   
   <!-- Topic Cards -->
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 30rem)); gap: 1.5rem;">
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
     {#each $topicStore.topics as topic}
-      <div style="background-color: white; border: 4px solid black; border-radius: 4px; padding: 1.5rem; position: relative;">
+      <div class="bg-white border-4 border-black rounded p-6 relative">
         <button 
-          style="position: absolute; top: 1rem; right: 1rem; background-color: #FF2C2C; color: white; border: 2px solid black; border-radius: 4px; padding: 0.25rem 0.5rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer; font-size: 0.75rem; display: flex; align-items: center; gap: 0.25rem;"
+          class="absolute top-4 right-4 bg-brand-red text-white border-2 border-black rounded px-2 py-1 font-mono font-bold cursor-pointer text-xs flex items-center gap-1"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="5" cy="5" r="3"/>
@@ -148,7 +148,7 @@
         
         <!-- Delete button in bottom-right corner -->
         <button 
-          style="position: absolute; bottom: 1rem; right: 1rem; background-color: #FF2C2C; color: white; border: 2px solid black; border-radius: 4px; padding: 0.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center;"
+          class="absolute bottom-4 right-4 bg-brand-red text-white border-2 border-black rounded p-2 cursor-pointer flex items-center justify-center"
           on:click={() => handleDeleteTopic(topic.id, topic.title)}
           aria-label="Delete topic"
           title="Delete topic"
@@ -160,29 +160,29 @@
             <rect x="13" y="11" width="2" height="6"/>
           </svg>
         </button>
-        <h3 style="font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem; color: black; font-family: 'IBM Plex Mono', monospace; padding-right: 5rem;">
+        <h3 class="text-xl font-bold mb-4 text-black font-mono pr-20">
           {topic.title}
         </h3>
-        <p style="color: #222222; margin-bottom: 1rem;">
+        <p class="text-secondary-text mb-4">
           {topic.description}
         </p>
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+        <div class="flex items-center justify-between mb-4">
           <span 
-            style="background-color: {topic.status === 'completed' ? '#10B981' : '#F59E0B'}; color: white; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.875rem; font-family: 'IBM Plex Mono', monospace;"
+            class="{topic.status === 'completed' ? 'bg-green-500' : 'bg-yellow-500'} text-white px-3 py-1 rounded text-sm font-mono"
           >
             {topic.status}
           </span>
-          <span style="font-size: 0.875rem; color: #222222;">{topic.createdAt}</span>
+          <span class="text-sm text-secondary-text">{topic.createdAt}</span>
         </div>
-        <div style="display: flex; gap: 0.5rem;">
+        <div class="flex gap-2">
           <button 
-            style="background-color: #0050FF; color: white; border: 4px solid black; border-radius: 4px; padding: 0.5rem 1rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer; font-size: 0.875rem;"
+            class="bg-brand-blue text-white border-4 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer text-sm"
             on:click={() => handleStudyClick(topic)}
           >
             Study
           </button>
           <button 
-            style="background-color: #EC4899; color: white; border: 4px solid black; border-radius: 4px; padding: 0.5rem 1rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer; font-size: 0.875rem;"
+            class="bg-brand-pink text-white border-4 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer text-sm"
             on:click={() => handleAddRemoveSourcesClick(topic)}
           >
             Add/Remove Sources
@@ -192,12 +192,12 @@
     {/each}
     
     {#if $topicStore.topics.length === 0}
-      <div style="grid-column: 1 / -1;">
-        <div style="background-color: white; border: 4px solid black; border-radius: 4px; padding: 3rem; text-align: center;">
-          <h3 style="font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem; color: black; font-family: 'IBM Plex Mono', monospace;">No topics yet</h3>
-          <p style="color: #222222; margin-bottom: 1.5rem;">Create your first study topic to get started</p>
+      <div class="col-span-full">
+        <div class="bg-white border-4 border-black rounded p-12 text-center">
+          <h3 class="text-xl font-bold mb-4 text-black font-mono">No topics yet</h3>
+          <p class="text-secondary-text mb-6">Create your first study topic to get started</p>
           <button 
-            style="background-color: #0050FF; color: white; border: 4px solid black; border-radius: 4px; padding: 0.5rem 1rem; font-family: 'IBM Plex Mono', monospace; font-weight: bold; cursor: pointer;"
+            class="bg-brand-blue text-white border-4 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer"
           >
             Create Topic
           </button>
