@@ -2,10 +2,12 @@
   import { onMount } from 'svelte'
   import { topicStore, topicActions } from '../stores/topicStore'
   import { uiStore, uiActions } from '../stores/uiStore'
+  import type { ConfirmModalData } from '../stores/uiStore'
   import Card from '../components/Card.svelte'
   import Button from '../components/Button.svelte'
   import ChatModal from '../components/ChatModal.svelte'
   import SourcesModal from '../components/SourcesModal.svelte'
+  import ConfirmModal from '../components/ConfirmModal.svelte'
   
   onMount(() => {
     topicActions.setTopics([
@@ -53,6 +55,25 @@
     uiActions.closeSourcesModal()
   }
   
+  function handleDeleteTopic(topicId: string, topicTitle: string) {
+    const confirmData: ConfirmModalData = {
+      title: 'Delete Topic',
+      message: `Are you sure you want to delete "${topicTitle}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      isDangerous: true,
+      onConfirm: () => {
+        topicActions.deleteTopic(topicId)
+        uiActions.closeConfirmModal()
+      }
+    }
+    uiActions.openConfirmModal(confirmData)
+  }
+  
+  function handleConfirmModalCancel() {
+    uiActions.closeConfirmModal()
+  }
+  
   $: selectedTopic = $uiStore.selectedTopicForChat 
     ? $topicStore.topics.find(t => t.id === $uiStore.selectedTopicForChat)
     : null
@@ -96,6 +117,21 @@
             <line x1="19" y1="8" x2="12" y2="16" stroke="currentColor" stroke-width="2"/>
           </svg>
           Graph
+        </button>
+        
+        <!-- Delete button in bottom-right corner -->
+        <button 
+          style="position: absolute; bottom: 1rem; right: 1rem; background-color: #FF2C2C; color: white; border: 2px solid black; border-radius: 4px; padding: 0.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center;"
+          on:click={() => handleDeleteTopic(topic.id, topic.title)}
+          aria-label="Delete topic"
+          title="Delete topic"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 6h18l-1.5 14H4.5L3 6zm5-4h8v2H8V2zm2 6v8h2V8h-2zm4 0v8h2V8h-2z"/>
+            <rect x="10" y="2" width="4" height="2"/>
+            <rect x="9" y="11" width="2" height="6"/>
+            <rect x="13" y="11" width="2" height="6"/>
+          </svg>
         </button>
         <h3 style="font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem; color: black; font-family: 'IBM Plex Mono', monospace; padding-right: 5rem;">
           {topic.title}
@@ -157,4 +193,16 @@
   isOpen={$uiStore.isSourcesModalOpen}
   topicTitle={selectedTopicForSources?.title || ''}
   on:close={handleCloseSourcesModal}
+/>
+
+<!-- Confirm Modal -->
+<ConfirmModal 
+  isOpen={$uiStore.isConfirmModalOpen}
+  title={$uiStore.confirmModalData?.title || ''}
+  message={$uiStore.confirmModalData?.message || ''}
+  confirmText={$uiStore.confirmModalData?.confirmText || 'OK'}
+  cancelText={$uiStore.confirmModalData?.cancelText || 'Cancel'}
+  isDangerous={$uiStore.confirmModalData?.isDangerous || false}
+  on:confirm={() => $uiStore.confirmModalData?.onConfirm()}
+  on:cancel={handleConfirmModalCancel}
 />

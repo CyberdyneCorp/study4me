@@ -7,8 +7,19 @@ export interface UIState {
   selectedTopicForChat: string | null
   isSourcesModalOpen: boolean
   selectedTopicForSources: string | null
+  isConfirmModalOpen: boolean
+  confirmModalData: ConfirmModalData | null
   notifications: Notification[]
   theme: 'light' | 'dark'
+}
+
+export interface ConfirmModalData {
+  title: string
+  message: string
+  confirmText: string
+  cancelText: string
+  isDangerous?: boolean
+  onConfirm: () => void
 }
 
 export interface Notification {
@@ -25,6 +36,8 @@ const initialState: UIState = {
   selectedTopicForChat: null,
   isSourcesModalOpen: false,
   selectedTopicForSources: null,
+  isConfirmModalOpen: false,
+  confirmModalData: null,
   notifications: [],
   theme: 'light'
 }
@@ -77,6 +90,22 @@ export const uiActions = {
       ...state,
       isSourcesModalOpen: false,
       selectedTopicForSources: null
+    }))
+  },
+  
+  openConfirmModal: (data: ConfirmModalData) => {
+    uiStore.update(state => ({
+      ...state,
+      isConfirmModalOpen: true,
+      confirmModalData: data
+    }))
+  },
+  
+  closeConfirmModal: () => {
+    uiStore.update(state => ({
+      ...state,
+      isConfirmModalOpen: false,
+      confirmModalData: null
     }))
   },
   

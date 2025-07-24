@@ -66,5 +66,13 @@ export const topicActions = {
   
   clearSelectedTopic: () => {
     topicStore.update(state => ({ ...state, selectedTopic: null }))
+  },
+  
+  deleteTopic: (id: string) => {
+    topicStore.update(state => ({
+      ...state,
+      topics: state.topics.filter(topic => topic.id !== id),
+      selectedTopic: state.selectedTopic?.id === id ? null : state.selectedTopic
+    }))
   }
 }
