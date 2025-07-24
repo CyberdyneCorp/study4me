@@ -1,0 +1,622 @@
+{
+  "config": {
+    "configFile": "/Users/leonardoaraujo/work/study4me/frontend/playwright.config.ts",
+    "rootDir": "/Users/leonardoaraujo/work/study4me/frontend/tests",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 6
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        null
+      ],
+      [
+        "line",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/Users/leonardoaraujo/work/study4me/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/leonardoaraujo/work/study4me/frontend/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/leonardoaraujo/work/study4me/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "/Users/leonardoaraujo/work/study4me/frontend/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/leonardoaraujo/work/study4me/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "webkit",
+        "name": "webkit",
+        "testDir": "/Users/leonardoaraujo/work/study4me/frontend/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/leonardoaraujo/work/study4me/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "Mobile Chrome",
+        "name": "Mobile Chrome",
+        "testDir": "/Users/leonardoaraujo/work/study4me/frontend/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/leonardoaraujo/work/study4me/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "Mobile Safari",
+        "name": "Mobile Safari",
+        "testDir": "/Users/leonardoaraujo/work/study4me/frontend/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/leonardoaraujo/work/study4me/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "Tablet",
+        "name": "Tablet",
+        "testDir": "/Users/leonardoaraujo/work/study4me/frontend/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.54.1",
+    "workers": 6,
+    "webServer": {
+      "command": "npm run dev",
+      "url": "http://localhost:3001",
+      "reuseExistingServer": true,
+      "timeout": 120000,
+      "stdout": "ignore",
+      "stderr": "pipe"
+    }
+  },
+  "suites": [
+    {
+      "title": "dashboard.spec.ts",
+      "file": "dashboard.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Dashboard Page",
+          "file": "dashboard.spec.ts",
+          "line": 14,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should open chat modal when clicking Study button",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 5623,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Study: Machine Learning Fundamentals')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Study: Machine Learning Fundamentals')\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Study: Machine Learning Fundamentals')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Study: Machine Learning Fundamentals')\u001b[22m\n\n    at /Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts:115:74",
+                        "location": {
+                          "file": "/Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts",
+                          "column": 74,
+                          "line": 115
+                        },
+                        "snippet": "  113 |     // Check that chat modal opened\n  114 |     await expect(page.getByRole('dialog')).toBeVisible();\n> 115 |     await expect(page.getByText('Study: Machine Learning Fundamentals')).toBeVisible();\n      |                                                                          ^\n  116 |     \n  117 |     // Check chat interface elements\n  118 |     await expect(page.getByText('Sources')).toBeVisible();"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts",
+                            "column": 74,
+                            "line": 115
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Study: Machine Learning Fundamentals')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Study: Machine Learning Fundamentals')\u001b[22m\n\n\n  113 |     // Check that chat modal opened\n  114 |     await expect(page.getByRole('dialog')).toBeVisible();\n> 115 |     await expect(page.getByText('Study: Machine Learning Fundamentals')).toBeVisible();\n      |                                                                          ^\n  116 |     \n  117 |     // Check chat interface elements\n  118 |     await expect(page.getByText('Sources')).toBeVisible();\n    at /Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts:115:74"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-24T20:11:37.917Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/leonardoaraujo/work/study4me/frontend/test-results/dashboard-Dashboard-Page-s-6e0db--when-clicking-Study-button-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/leonardoaraujo/work/study4me/frontend/test-results/dashboard-Dashboard-Page-s-6e0db--when-clicking-Study-button-chromium/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/leonardoaraujo/work/study4me/frontend/test-results/dashboard-Dashboard-Page-s-6e0db--when-clicking-Study-button-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts",
+                        "column": 74,
+                        "line": 115
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "90cda532ab82d274b30b-7756c859ba6923e63a3c",
+              "file": "dashboard.spec.ts",
+              "line": 109,
+              "column": 3
+            },
+            {
+              "title": "should open chat modal when clicking Study button",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 5736,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Study: Machine Learning Fundamentals')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Study: Machine Learning Fundamentals')\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Study: Machine Learning Fundamentals')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Study: Machine Learning Fundamentals')\u001b[22m\n\n    at /Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts:115:74",
+                        "location": {
+                          "file": "/Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts",
+                          "column": 74,
+                          "line": 115
+                        },
+                        "snippet": "  113 |     // Check that chat modal opened\n  114 |     await expect(page.getByRole('dialog')).toBeVisible();\n> 115 |     await expect(page.getByText('Study: Machine Learning Fundamentals')).toBeVisible();\n      |                                                                          ^\n  116 |     \n  117 |     // Check chat interface elements\n  118 |     await expect(page.getByText('Sources')).toBeVisible();"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts",
+                            "column": 74,
+                            "line": 115
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Study: Machine Learning Fundamentals')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Study: Machine Learning Fundamentals')\u001b[22m\n\n\n  113 |     // Check that chat modal opened\n  114 |     await expect(page.getByRole('dialog')).toBeVisible();\n> 115 |     await expect(page.getByText('Study: Machine Learning Fundamentals')).toBeVisible();\n      |                                                                          ^\n  116 |     \n  117 |     // Check chat interface elements\n  118 |     await expect(page.getByText('Sources')).toBeVisible();\n    at /Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts:115:74"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-24T20:11:37.914Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/leonardoaraujo/work/study4me/frontend/test-results/dashboard-Dashboard-Page-s-6e0db--when-clicking-Study-button-firefox/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/leonardoaraujo/work/study4me/frontend/test-results/dashboard-Dashboard-Page-s-6e0db--when-clicking-Study-button-firefox/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/leonardoaraujo/work/study4me/frontend/test-results/dashboard-Dashboard-Page-s-6e0db--when-clicking-Study-button-firefox/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts",
+                        "column": 74,
+                        "line": 115
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "90cda532ab82d274b30b-f2d3da0ff325c7d823d0",
+              "file": "dashboard.spec.ts",
+              "line": 109,
+              "column": 3
+            },
+            {
+              "title": "should open chat modal when clicking Study button",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 5571,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Study: Machine Learning Fundamentals')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Study: Machine Learning Fundamentals')\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Study: Machine Learning Fundamentals')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Study: Machine Learning Fundamentals')\u001b[22m\n\n    at /Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts:115:74",
+                        "location": {
+                          "file": "/Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts",
+                          "column": 74,
+                          "line": 115
+                        },
+                        "snippet": "  113 |     // Check that chat modal opened\n  114 |     await expect(page.getByRole('dialog')).toBeVisible();\n> 115 |     await expect(page.getByText('Study: Machine Learning Fundamentals')).toBeVisible();\n      |                                                                          ^\n  116 |     \n  117 |     // Check chat interface elements\n  118 |     await expect(page.getByText('Sources')).toBeVisible();"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts",
+                            "column": 74,
+                            "line": 115
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Study: Machine Learning Fundamentals')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Study: Machine Learning Fundamentals')\u001b[22m\n\n\n  113 |     // Check that chat modal opened\n  114 |     await expect(page.getByRole('dialog')).toBeVisible();\n> 115 |     await expect(page.getByText('Study: Machine Learning Fundamentals')).toBeVisible();\n      |                                                                          ^\n  116 |     \n  117 |     // Check chat interface elements\n  118 |     await expect(page.getByText('Sources')).toBeVisible();\n    at /Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts:115:74"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-24T20:11:37.915Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/leonardoaraujo/work/study4me/frontend/test-results/dashboard-Dashboard-Page-s-6e0db--when-clicking-Study-button-webkit/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/leonardoaraujo/work/study4me/frontend/test-results/dashboard-Dashboard-Page-s-6e0db--when-clicking-Study-button-webkit/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/leonardoaraujo/work/study4me/frontend/test-results/dashboard-Dashboard-Page-s-6e0db--when-clicking-Study-button-webkit/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts",
+                        "column": 74,
+                        "line": 115
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "90cda532ab82d274b30b-95a5a36c50daeb59f777",
+              "file": "dashboard.spec.ts",
+              "line": 109,
+              "column": 3
+            },
+            {
+              "title": "should open chat modal when clicking Study button",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "failed",
+                      "duration": 5582,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Study: Machine Learning Fundamentals')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Study: Machine Learning Fundamentals')\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Study: Machine Learning Fundamentals')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Study: Machine Learning Fundamentals')\u001b[22m\n\n    at /Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts:115:74",
+                        "location": {
+                          "file": "/Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts",
+                          "column": 74,
+                          "line": 115
+                        },
+                        "snippet": "  113 |     // Check that chat modal opened\n  114 |     await expect(page.getByRole('dialog')).toBeVisible();\n> 115 |     await expect(page.getByText('Study: Machine Learning Fundamentals')).toBeVisible();\n      |                                                                          ^\n  116 |     \n  117 |     // Check chat interface elements\n  118 |     await expect(page.getByText('Sources')).toBeVisible();"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts",
+                            "column": 74,
+                            "line": 115
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Study: Machine Learning Fundamentals')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Study: Machine Learning Fundamentals')\u001b[22m\n\n\n  113 |     // Check that chat modal opened\n  114 |     await expect(page.getByRole('dialog')).toBeVisible();\n> 115 |     await expect(page.getByText('Study: Machine Learning Fundamentals')).toBeVisible();\n      |                                                                          ^\n  116 |     \n  117 |     // Check chat interface elements\n  118 |     await expect(page.getByText('Sources')).toBeVisible();\n    at /Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts:115:74"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-24T20:11:37.918Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/leonardoaraujo/work/study4me/frontend/test-results/dashboard-Dashboard-Page-s-6e0db--when-clicking-Study-button-Mobile-Chrome/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/leonardoaraujo/work/study4me/frontend/test-results/dashboard-Dashboard-Page-s-6e0db--when-clicking-Study-button-Mobile-Chrome/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/leonardoaraujo/work/study4me/frontend/test-results/dashboard-Dashboard-Page-s-6e0db--when-clicking-Study-button-Mobile-Chrome/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts",
+                        "column": 74,
+                        "line": 115
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "90cda532ab82d274b30b-4989a5653970d3456800",
+              "file": "dashboard.spec.ts",
+              "line": 109,
+              "column": 3
+            },
+            {
+              "title": "should open chat modal when clicking Study button",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 5548,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Study: Machine Learning Fundamentals')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Study: Machine Learning Fundamentals')\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Study: Machine Learning Fundamentals')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Study: Machine Learning Fundamentals')\u001b[22m\n\n    at /Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts:115:74",
+                        "location": {
+                          "file": "/Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts",
+                          "column": 74,
+                          "line": 115
+                        },
+                        "snippet": "  113 |     // Check that chat modal opened\n  114 |     await expect(page.getByRole('dialog')).toBeVisible();\n> 115 |     await expect(page.getByText('Study: Machine Learning Fundamentals')).toBeVisible();\n      |                                                                          ^\n  116 |     \n  117 |     // Check chat interface elements\n  118 |     await expect(page.getByText('Sources')).toBeVisible();"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts",
+                            "column": 74,
+                            "line": 115
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Study: Machine Learning Fundamentals')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Study: Machine Learning Fundamentals')\u001b[22m\n\n\n  113 |     // Check that chat modal opened\n  114 |     await expect(page.getByRole('dialog')).toBeVisible();\n> 115 |     await expect(page.getByText('Study: Machine Learning Fundamentals')).toBeVisible();\n      |                                                                          ^\n  116 |     \n  117 |     // Check chat interface elements\n  118 |     await expect(page.getByText('Sources')).toBeVisible();\n    at /Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts:115:74"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-24T20:11:37.917Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/leonardoaraujo/work/study4me/frontend/test-results/dashboard-Dashboard-Page-s-6e0db--when-clicking-Study-button-Mobile-Safari/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/leonardoaraujo/work/study4me/frontend/test-results/dashboard-Dashboard-Page-s-6e0db--when-clicking-Study-button-Mobile-Safari/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/leonardoaraujo/work/study4me/frontend/test-results/dashboard-Dashboard-Page-s-6e0db--when-clicking-Study-button-Mobile-Safari/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts",
+                        "column": 74,
+                        "line": 115
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "90cda532ab82d274b30b-c7ceee3869457f870c45",
+              "file": "dashboard.spec.ts",
+              "line": 109,
+              "column": 3
+            },
+            {
+              "title": "should open chat modal when clicking Study button",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Tablet",
+                  "projectName": "Tablet",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "failed",
+                      "duration": 5690,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Study: Machine Learning Fundamentals')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Study: Machine Learning Fundamentals')\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Study: Machine Learning Fundamentals')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Study: Machine Learning Fundamentals')\u001b[22m\n\n    at /Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts:115:74",
+                        "location": {
+                          "file": "/Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts",
+                          "column": 74,
+                          "line": 115
+                        },
+                        "snippet": "  113 |     // Check that chat modal opened\n  114 |     await expect(page.getByRole('dialog')).toBeVisible();\n> 115 |     await expect(page.getByText('Study: Machine Learning Fundamentals')).toBeVisible();\n      |                                                                          ^\n  116 |     \n  117 |     // Check chat interface elements\n  118 |     await expect(page.getByText('Sources')).toBeVisible();"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts",
+                            "column": 74,
+                            "line": 115
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Study: Machine Learning Fundamentals')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Study: Machine Learning Fundamentals')\u001b[22m\n\n\n  113 |     // Check that chat modal opened\n  114 |     await expect(page.getByRole('dialog')).toBeVisible();\n> 115 |     await expect(page.getByText('Study: Machine Learning Fundamentals')).toBeVisible();\n      |                                                                          ^\n  116 |     \n  117 |     // Check chat interface elements\n  118 |     await expect(page.getByText('Sources')).toBeVisible();\n    at /Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts:115:74"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-24T20:11:37.917Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/leonardoaraujo/work/study4me/frontend/test-results/dashboard-Dashboard-Page-s-6e0db--when-clicking-Study-button-Tablet/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/leonardoaraujo/work/study4me/frontend/test-results/dashboard-Dashboard-Page-s-6e0db--when-clicking-Study-button-Tablet/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/leonardoaraujo/work/study4me/frontend/test-results/dashboard-Dashboard-Page-s-6e0db--when-clicking-Study-button-Tablet/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/leonardoaraujo/work/study4me/frontend/tests/dashboard.spec.ts",
+                        "column": 74,
+                        "line": 115
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "90cda532ab82d274b30b-47fa66f4952f609489bf",
+              "file": "dashboard.spec.ts",
+              "line": 109,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-07-24T20:11:36.758Z",
+    "duration": 7998.237,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 6,
+    "flaky": 0
+  }
+}
