@@ -1,14 +1,33 @@
+<!--
+  Dashboard.svelte - Main dashboard page for Study4Me application
+  
+  This component serves as the primary interface where users can:
+  - View all their study topics in a responsive grid layout
+  - Create new topics using the "Create New Topic" card or empty state button
+  - Interact with existing topics (Study, Add/Remove Sources, View Graph, Delete)
+  - Access various modals for different functionalities
+  
+  The dashboard handles two main states:
+  1. Empty State: Shows "No topics yet" message with create button
+  2. Populated State: Shows grid of topic cards with "Create New Topic" card as first item
+-->
+
 <script lang="ts">
+  // Svelte lifecycle import for component initialization
   import { onMount } from 'svelte'
-  import { topicStore, topicActions } from '../stores/topicStore'
-  import { uiStore, uiActions } from '../stores/uiStore'
-  import type { ConfirmModalData } from '../stores/uiStore'
-  import Card from '../components/Card.svelte'
-  import Button from '../components/Button.svelte'
-  import ChatModal from '../components/ChatModal.svelte'
-  import SourcesModal from '../components/SourcesModal.svelte'
-  import ConfirmModal from '../components/ConfirmModal.svelte'
-  import TopicCreationModal from '../components/TopicCreationModal.svelte'
+  
+  // Store imports for state management
+  import { topicStore, topicActions } from '../stores/topicStore'  // Topic data management
+  import { uiStore, uiActions } from '../stores/uiStore'          // UI state (modals, etc.)
+  import type { ConfirmModalData } from '../stores/uiStore'       // TypeScript type for confirmation modal
+  
+  // Component imports - reusable UI components
+  import Card from '../components/Card.svelte'                    // Generic card component
+  import Button from '../components/Button.svelte'               // Reusable button component
+  import ChatModal from '../components/ChatModal.svelte'         // Study session chat interface
+  import SourcesModal from '../components/SourcesModal.svelte'   // File upload and source management
+  import ConfirmModal from '../components/ConfirmModal.svelte'   // Confirmation dialog for destructive actions
+  import TopicCreationModal from '../components/TopicCreationModal.svelte' // New topic creation form
   
   onMount(() => {
     // Sample topics for demonstration
@@ -68,30 +87,57 @@
     ])
   })
   
+  // ========================================
+  // EVENT HANDLERS
+  // ========================================
+  
+  /**
+   * Opens the chat modal for studying a specific topic
+   * This launches the interactive AI chat interface where users can ask questions about their topic
+   * @param topic - The topic object containing id, title, description, etc.
+   */
   function handleStudyClick(topic: any) {
     uiActions.openChatModal(topic.id)
   }
   
+  /**
+   * Closes the chat modal when user exits the study session
+   */
   function handleCloseChatModal() {
     uiActions.closeChatModal()
   }
   
+  /**
+   * Opens the sources modal for managing topic sources (files, URLs, videos)
+   * @param topic - The topic object to manage sources for
+   */
   function handleAddRemoveSourcesClick(topic: any) {
     uiActions.openSourcesModal(topic.id)
   }
   
+  /**
+   * Closes the sources management modal
+   */
   function handleCloseSourcesModal() {
     uiActions.closeSourcesModal()
   }
   
+  /**
+   * Handles topic deletion with confirmation dialog
+   * Creates a confirmation modal to prevent accidental deletions
+   * @param topicId - Unique identifier of the topic to delete
+   * @param topicTitle - Display name of the topic (shown in confirmation message)
+   */
   function handleDeleteTopic(topicId: string, topicTitle: string) {
+    // Configure the confirmation modal with destructive action styling
     const confirmData: ConfirmModalData = {
       title: 'Delete Topic',
       message: `Are you sure you want to delete "${topicTitle}"? This action cannot be undone.`,
       confirmText: 'Delete',
       cancelText: 'Cancel',
-      isDangerous: true,
+      isDangerous: true, // Applies red styling to confirm button
       onConfirm: () => {
+        // Actually delete the topic and close the modal
         topicActions.deleteTopic(topicId)
         uiActions.closeConfirmModal()
       }
@@ -99,32 +145,67 @@
     uiActions.openConfirmModal(confirmData)
   }
   
+  /**
+   * Cancels the confirmation modal without taking action
+   */
   function handleConfirmModalCancel() {
     uiActions.closeConfirmModal()
   }
   
+  /**
+   * Opens the topic creation modal
+   * Used by both the "Create New Topic" card and empty state button
+   */
   function handleCreateTopicClick() {
     uiActions.openTopicCreationModal()
   }
   
+  /**
+   * Closes the topic creation modal without creating a topic
+   */
   function handleTopicCreationModalClose() {
     uiActions.closeTopicCreationModal()
   }
   
+  /**
+   * Creates a new topic from the modal form data
+   * @param event - Custom event containing form data (name, description)
+   */
   function handleTopicCreate(event: CustomEvent) {
     const { name, description } = event.detail
     topicActions.createTopic(name, description)
     uiActions.closeTopicCreationModal()
   }
   
+  // ========================================
+  // REACTIVE STATEMENTS
+  // ========================================
+  
+  /**
+   * Reactive statement that finds the currently selected topic for chat modal
+   * Updates automatically when either the selectedTopicForChat ID or topics array changes
+   */
   $: selectedTopic = $uiStore.selectedTopicForChat 
     ? $topicStore.topics.find(t => t.id === $uiStore.selectedTopicForChat)
     : null
     
+  /**
+   * Reactive statement that finds the currently selected topic for sources modal
+   * Updates automatically when either the selectedTopicForSources ID or topics array changes
+   */
   $: selectedTopicForSources = $uiStore.selectedTopicForSources 
     ? $topicStore.topics.find(t => t.id === $uiStore.selectedTopicForSources)
     : null
   
+  // ========================================
+  // UTILITY FUNCTIONS
+  // ========================================
+  
+  /**
+   * Returns appropriate Tailwind CSS classes for topic status badges
+   * @param status - The current status of the topic ('completed', 'processing', 'error', etc.)
+   * @returns CSS classes for background and text color
+   */
   function getStatusColor(status: string) {
     switch (status) {
       case 'completed': return 'bg-green-200 text-green-900'
@@ -135,7 +216,17 @@
   }
 </script>
 
+<!-- 
+  ========================================
+  MAIN DASHBOARD TEMPLATE
+  ========================================
+  
+  This template renders the main dashboard interface using Tailwind CSS classes.
+  The layout is responsive and uses CSS Grid for topic cards.
+-->
+
 <main class="max-w-7xl mx-auto p-8">
+  <!-- Dashboard Header Section -->
   <div class="mb-8">
     <h1 class="text-4xl font-bold mb-4 text-black font-mono">
       Dashboard
@@ -145,23 +236,36 @@
     </p>
   </div>
   
-  <!-- Topic Cards -->
+  <!-- 
+    Topic Cards Grid Container
+    - Responsive grid: 1 column on mobile, 2 on tablet (md), 3 on desktop (xl)
+    - Uses CSS Grid with gap for consistent spacing
+  -->
   <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+    
+    <!-- 
+      Create New Topic Card (Conditional)
+      Only displays when topics exist to avoid duplication with empty state
+      Uses Svelte's reactive if block to show/hide based on topics array length
+    -->
     {#if $topicStore.topics.length > 0}
-      <!-- Create New Topic Card - Only show when topics exist -->
       <button 
         on:click={handleCreateTopicClick}
         class="bg-white border-4 border-dashed border-gray-400 rounded p-6 relative hover:border-brand-blue hover:bg-blue-50 transition-colors duration-200 cursor-pointer group"
       >
+        <!-- Centered content with flexbox layout -->
         <div class="flex flex-col items-center justify-center h-full min-h-48">
+          <!-- Plus icon with hover effect -->
           <div class="w-16 h-16 bg-brand-blue rounded-full flex items-center justify-center mb-4 group-hover:bg-opacity-90 transition-colors">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
               <path d="M12 2v20M2 12h20" stroke="white" stroke-width="2" stroke-linecap="round"/>
             </svg>
           </div>
+          <!-- Card title with hover color change -->
           <h3 class="text-xl font-bold mb-2 text-gray-600 group-hover:text-brand-blue font-mono transition-colors">
             Create New Topic
           </h3>
+          <!-- Description text -->
           <p class="text-sm text-gray-500 text-center group-hover:text-gray-700 transition-colors">
             Add a new study topic to get started
           </p>

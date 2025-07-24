@@ -1,33 +1,96 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/**
+ * app.css - Global styles for Study4Me application
+ * 
+ * This file establishes the foundation for the neobrutalism design system
+ * using Tailwind CSS with custom base styles and component classes.
+ * 
+ * Structure:
+ * 1. Tailwind imports (base, components, utilities)
+ * 2. Custom component classes for reusable elements
+ * 3. Base styles for consistent typography and interactions
+ */
 
+/* Import Tailwind CSS layers in correct order */
+@tailwind base;        /* Reset styles and base element styling */
+@tailwind components;  /* Component classes and utilities */
+@tailwind utilities;   /* Utility classes for layout and styling */
+
+/**
+ * Custom Component Classes
+ * Reusable component styles that maintain design consistency
+ */
 @layer components {
+  /**
+   * Neo-card component class
+   * Standard card styling for the neobrutalism design system
+   * Used throughout the application for consistent card appearance
+   * 
+   * Features:
+   * - White background for content contrast
+   * - 4px black border for neobrutalism aesthetic
+   * - Subtle border radius for improved UX
+   */
   .neo-card {
     @apply bg-white border-4 border-black rounded;
   }
 }
 
+/**
+ * Base Element Styles
+ * Global styles that apply to HTML elements throughout the application
+ * Establishes typography hierarchy and interaction patterns
+ */
 @layer base {
+  /**
+   * Universal Reset
+   * Removes browser default margins and paddings
+   * Sets consistent box-sizing for predictable layouts
+   */
   * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
   }
 
+  /**
+   * Body Element
+   * Sets the foundation for the entire application appearance:
+   * - Brand yellow background for neobrutalism design
+   * - Inter font family for readable body text
+   * - Black text for high contrast and accessibility
+   */
   body {
     @apply bg-brand-yellow font-inter text-black;
   }
 
+  /**
+   * Heading Elements (h1-h6)
+   * Consistent typography for all heading levels:
+   * - IBM Plex Mono font for technical/retro aesthetic
+   * - Bold weight for visual hierarchy
+   * - Maintains neobrutalism design language
+   */
   h1, h2, h3, h4, h5, h6 {
     @apply font-mono font-bold;
   }
 
+  /**
+   * Button Elements
+   * Base button styling for interactive elements:
+   * - Pointer cursor for clear interactivity
+   * - Removes default browser button borders
+   * - Inherits font family from parent elements
+   */
   button {
     @apply cursor-pointer border-none;
     font-family: inherit;
   }
 
+  /**
+   * Button Hover State  
+   * Subtle opacity reduction provides universal hover feedback
+   * Applied to all buttons unless specifically overridden
+   */
   button:hover {
     @apply opacity-90;
   }
