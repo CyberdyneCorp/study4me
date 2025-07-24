@@ -75,6 +75,7 @@ src/
     Button.svelte
     Card.svelte
     ChatModal.svelte
+    ConfirmModal.svelte
     GraphViewer.svelte
     Navbar.svelte
     SourcesModal.svelte
@@ -110,7 +111,7 @@ We use Svelte’s built-in writable and derived stores for global state:
 
 - **auth.ts:** Holds wallet connection status, NFT ownership flag, user address.
 - **topicStore.ts:** Tracks current topics list, selected topic details, ingestion status.
-- **uiStore.ts:** Manages UI flags (e.g., loading spinners, modals open/closed, chat modal state, sources modal state).
+- **uiStore.ts:** Manages UI flags (e.g., loading spinners, modals open/closed, chat modal state, sources modal state, confirmation modal state with customizable actions).
 
 ### Sharing State
 
@@ -170,12 +171,15 @@ Please don't use Router library
   - Status badge (completed/processing) with appropriate colors
   - Date information
   - Three action buttons: Study (blue), Add/Remove Sources (pink), Graph (red, top-right)
+  - Delete button (red, bottom-right corner) with trash icon for topic removal
+- **Card Sizing:** Fixed dimensions with minimum width of 20rem and maximum width of 30rem to prevent stretching when cards are deleted
 
 ### Button Color System
 
 - **Study Button:** #0050FF (Electric Blue) - Primary learning action
 - **Add/Remove Sources:** #EC4899 (Warning Pink) - Content management
 - **Graph Button:** #FF2C2C (Red Alert) - Knowledge graph visualization
+- **Delete Button:** #FF2C2C (Red Alert) - Destructive action with confirmation modal
 - **Connect Wallet:** #0050FF (Electric Blue) - Authentication action
 - **MCP Toggle:** #10B981 (Success Green) when enabled
 
@@ -244,6 +248,36 @@ Please don't use Router library
   - **Event Handling:** Add/Remove Sources button opens modal, close controls available
   - **File Processing:** Local state management for uploaded files and form inputs
 
+### Confirmation Modal Interface
+
+- **Modal Layout:** Centered overlay for destructive action confirmation:
+  - **Header (White):** Customizable title and pink close button
+  - **Content Area (White):** Warning message and action description
+  - **Footer (White):** Cancel and confirm buttons with appropriate styling
+
+- **Interactive Features:**
+  - **Dangerous Actions:** Red confirm button for destructive operations (e.g., topic deletion)
+  - **Safe Actions:** Blue confirm button for non-destructive confirmations
+  - **Customizable Text:** Title, message, and button labels can be configured per use case
+  - **Keyboard Support:** Enter to confirm, Escape to cancel
+
+- **Design Elements:**
+  - **Visual Hierarchy:** Clear distinction between cancel (gray) and confirm buttons
+  - **Consistent Styling:** Matches overall Neobrutalist design with thick black borders
+  - **Responsive Design:** Centered positioning with appropriate padding and spacing
+  - **Icon Integration:** Trash icon for delete confirmations, customizable for other actions
+
+- **State Management:**
+  - **uiStore Integration:** `isConfirmModalOpen` and `confirmModalData` with ConfirmModalData interface
+  - **Flexible Configuration:** Supports custom title, message, button text, and callback functions
+  - **Safe Defaults:** Provides reasonable fallback values for all configurable properties
+  - **Event Handling:** Delete button triggers modal, modal handles confirmation flow
+
+- **Usage Patterns:**
+  - **Topic Deletion:** Primary use case with "Are you sure you want to delete..." messaging
+  - **Extensible Design:** Can be reused for other destructive actions across the application
+  - **Callback System:** onConfirm function allows for flexible action handling per use case
+
 ## 10. Conclusion and Overall Frontend Summary
 
 Study4Me's frontend prototype demonstrates the Neobrutalist design principles with a clean, functional dashboard and interactive chat interface. The current implementation focuses on:
@@ -252,7 +286,9 @@ Study4Me's frontend prototype demonstrates the Neobrutalist design principles wi
 - **Clear user actions** through color-coded button system
 - **Interactive chat modal** for study sessions with topic sources and content generation tools
 - **Comprehensive sources modal** for file upload, website scraping, and YouTube video integration
+- **Safe deletion workflow** with confirmation modal for destructive actions
+- **Consistent card sizing** that prevents layout issues when content is removed
 - **Functional layout** that prioritizes learning workflows
 - **Scalable component structure** ready for future expansion
 
-The prototype successfully establishes the visual identity and core user interactions for the Study4Me platform, including the central chat-based learning interface, providing a solid foundation for further development.
+The prototype successfully establishes the visual identity and core user interactions for the Study4Me platform, including the central chat-based learning interface and safe content management workflows, providing a solid foundation for further development.

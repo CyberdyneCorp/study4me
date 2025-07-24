@@ -35,6 +35,33 @@
           { id: '4', title: 'Quantum Mechanics Primer', type: 'PDF' },
           { id: '5', title: 'Qubits and Quantum Gates', type: 'Video' }
         ]
+      },
+      {
+        id: '3',
+        title: 'Web Development Essentials',
+        description: 'Modern web technologies including React, Node.js, and database design',
+        status: 'completed',
+        createdAt: '2024-01-12',
+        updatedAt: '2024-01-14',
+        sources: [
+          { id: '6', title: 'React Fundamentals', type: 'PDF' },
+          { id: '7', title: 'Node.js Backend Tutorial', type: 'Video' },
+          { id: '8', title: 'Database Design Patterns', type: 'Article' },
+          { id: '9', title: 'CSS Grid and Flexbox', type: 'PDF' }
+        ]
+      },
+      {
+        id: '4',
+        title: 'Data Structures & Algorithms',
+        description: 'Core computer science concepts for technical interviews and problem solving',
+        status: 'processing',
+        createdAt: '2024-01-18',
+        updatedAt: '2024-01-18',
+        sources: [
+          { id: '10', title: 'Big O Notation Guide', type: 'PDF' },
+          { id: '11', title: 'Binary Trees Explained', type: 'Video' },
+          { id: '12', title: 'Dynamic Programming Patterns', type: 'Article' }
+        ]
       }
     ])
   })
@@ -103,7 +130,7 @@
   </div>
   
   <!-- Topic Cards -->
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1.5rem;">
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 30rem)); gap: 1.5rem;">
     {#each $topicStore.topics as topic}
       <div style="background-color: white; border: 4px solid black; border-radius: 4px; padding: 1.5rem; position: relative;">
         <button 
