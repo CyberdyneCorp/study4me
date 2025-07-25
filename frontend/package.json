@@ -26,9 +26,13 @@
     "vite": "^5.4.0"
   },
   "dependencies": {
+    "@reown/appkit": "^1.7.16",
+    "@reown/appkit-adapter-wagmi": "^1.7.16",
     "@web3auth/base": "^9.7.0",
     "@web3auth/modal": "^10.0.7",
     "svelte-spa-router": "^4.0.1",
-    "vite-plugin-node-polyfills": "^0.24.0"
+    "viem": "^2.33.0",
+    "vite-plugin-node-polyfills": "^0.24.0",
+    "wagmi": "^2.16.0"
   }
 }

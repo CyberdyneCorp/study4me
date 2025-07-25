@@ -24,7 +24,7 @@ export default defineConfig({
     global: 'globalThis',
   },
   optimizeDeps: {
-    include: ['@web3auth/modal', '@web3auth/base'],
+    include: ['@web3auth/modal', '@web3auth/base', '@reown/appkit', '@reown/appkit-adapter-wagmi'],
   },
   resolve: {
     alias: {

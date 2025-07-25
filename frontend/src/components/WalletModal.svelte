@@ -30,6 +30,16 @@
     loginWithWeb3Auth, 
     type LoginProvider 
   } from '../lib/web3AuthService'
+  import { 
+    initializeAppKit, 
+    openAppKitModal 
+  } from '../lib/appkitService'
+  import { 
+    appKitState, 
+    isAppKitLoading, 
+    appKitError,
+    isWalletConnected
+  } from '../stores/appKitStore'
   
   // Props
   export let isOpen = false    // Controls modal visibility from parent component
@@ -37,10 +47,13 @@
   // Event dispatcher for communicating with parent component
   const dispatch = createEventDispatcher()
   
-  // Initialize Web3Auth when component mounts
+  // Initialize Web3Auth and AppKit when component mounts
   onMount(async () => {
     if (!$web3AuthState.isInitialized) {
       await initializeWeb3Auth()
+    }
+    if (!$appKitState.isInitialized) {
+      await initializeAppKit()
     }
   })
   
@@ -53,14 +66,28 @@
   }
   
   /**
-   * Handles WalletConnect wallet connection
-   * TODO: Implement actual WalletConnect integration
-   * Currently just logs and dispatches event for testing
+   * Handles Reown AppKit wallet connection (WalletConnect)
+   * Opens the AppKit modal with QR code for mobile wallet connections
+   * Supports MetaMask Mobile, Trust Wallet, Coinbase Wallet, etc.
    */
-  function handleWalletConnect() {
-    // TODO: Implement WalletConnect integration
-    console.log('Connecting with WalletConnect...')
-    dispatch('connect', { type: 'walletconnect' })
+  async function handleWalletConnect() {
+    try {
+      console.log('Opening Reown AppKit modal for wallet connection...')
+      await openAppKitModal()
+      
+      // The connection event will be handled by the AppKit service
+      // We'll dispatch an event when the connection is successful
+      if ($isWalletConnected) {
+        dispatch('connect', { 
+          type: 'walletconnect', 
+          provider: 'appkit',
+          walletInfo: $appKitState.walletInfo
+        })
+        handleClose()
+      }
+    } catch (error) {
+      console.error('Error opening AppKit modal:', error)
+    }
   }
   
   /**
@@ -199,7 +226,8 @@
         -->
         <button 
           on:click={handleWalletConnect}
-          class="w-full flex items-center gap-4 p-4 bg-white border-3 border-black rounded-md mb-4 cursor-pointer transition-colors hover:bg-gray-50"
+          disabled={$isAppKitLoading || $isWeb3AuthLoading}
+          class="w-full flex items-center gap-4 p-4 bg-white border-3 border-black rounded-md mb-4 cursor-pointer transition-colors hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <!-- WalletConnect Icon Container -->
           <div class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
@@ -212,12 +240,12 @@
           </div>
           
           <!-- WalletConnect Text Content -->
-          <div class="text-left">
+          <div class="text-left flex-1">
             <div class="font-mono font-bold text-black text-base">
-              Wallet Connect
+              {$isAppKitLoading ? 'Opening...' : 'WalletConnect'}
             </div>
             <div class="text-gray-600 text-sm mt-1">
-              Connect with your mobile wallet
+              {$isAppKitLoading ? 'Preparing QR code...' : 'Scan QR code with mobile wallet'}
             </div>
           </div>
         </button>
@@ -230,9 +258,14 @@
         -->
         
         <!-- Error Display -->
-        {#if $web3AuthError}
+        {#if $web3AuthError || $appKitError}
           <div class="mb-4 p-3 bg-red-100 border-2 border-red-500 rounded-md">
-            <p class="text-red-700 text-sm font-mono">{$web3AuthError}</p>
+            {#if $web3AuthError}
+              <p class="text-red-700 text-sm font-mono">{$web3AuthError}</p>
+            {/if}
+            {#if $appKitError}
+              <p class="text-red-700 text-sm font-mono">{$appKitError}</p>
+            {/if}
           </div>
         {/if}
 
