@@ -54,6 +54,7 @@ study4me/
 - Ethereum wallet (MetaMask, WalletConnect compatible)
 - Study4Me NFT (available on Base & Arbitrum networks)
 - Node.js 18+ and Python 3.9+
+- Reown project ID (for WalletConnect integration)
 
 ### User Flow
 1. **Connect Wallet**: Login with Web3Auth or WalletConnect
@@ -106,6 +107,52 @@ study4me/
 ## Development
 
 The project is structured as a monorepo with separate frontend and backend applications. See individual directories for specific setup instructions.
+
+### Reown AppKit Setup
+
+Study4Me uses Reown AppKit (formerly WalletConnect AppKit) for wallet connections. Follow these steps to configure it:
+
+#### 1. Get a Reown Project ID
+1. Visit [Reown Cloud](https://cloud.reown.com/)
+2. Create a new project or use an existing one
+3. Copy your Project ID from the dashboard
+
+#### 2. Environment Configuration
+Create a `.env` file in the `frontend/` directory:
+
+```bash
+# Reown AppKit Configuration
+VITE_REOWN_PROJECT_ID=your_project_id_here
+VITE_REOWN_APP_NAME=Study4Me
+VITE_REOWN_APP_DESCRIPTION=Blockchain-gated study platform
+VITE_REOWN_APP_URL=https://study4me.com
+VITE_REOWN_APP_ICON=https://study4me.com/icon.png
+```
+
+#### 3. Supported Networks
+The AppKit is configured for:
+- **Ethereum Mainnet** (default)
+- **Arbitrum**
+- **Polygon**
+
+#### 4. Featured Wallets
+Pre-configured wallet integrations include:
+- MetaMask
+- Coinbase Wallet
+- Trust Wallet
+- Bitget Wallet
+
+#### 5. Implementation Details
+- **Service**: `frontend/src/lib/appkitService.ts` - Main AppKit integration
+- **Store**: `frontend/src/stores/appKitStore.ts` - State management
+- **Component**: `frontend/src/components/WalletModal.svelte` - UI integration
+
+#### 6. Key Features
+- QR code modal for mobile wallet connections
+- Multi-chain support with network switching
+- Connection state management
+- Error handling and logging
+- Custom theming with neobrutalism design
 
 ## License
 
