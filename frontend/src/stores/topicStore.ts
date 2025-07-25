@@ -12,18 +12,20 @@
  */
 
 import { writable } from 'svelte/store'
+import { apiService, type StudyTopic, type CreateStudyTopicRequest } from '../services/api'
 
 /**
  * Interface defining the structure of a study topic
  * Represents a single topic that users can study and manage
  */
 export interface Topic {
-  id: string                  // Unique identifier for the topic
-  title: string              // Display name of the topic
-  description: string        // Brief description of what the topic covers
-  status: 'pending' | 'processing' | 'completed' | 'error'  // Current processing status
+  id: string                  // Unique identifier for the topic (maps to topic_id from backend)
+  title: string              // Display name of the topic (maps to name from backend)
+  description: string | null // Brief description of what the topic covers
+  status: 'pending' | 'processing' | 'completed' | 'error'  // Current processing status (frontend only)
   createdAt: string         // ISO date string when topic was created
   updatedAt: string         // ISO date string when topic was last modified
+  use_knowledge_graph?: boolean // Whether knowledge graph is enabled for this topic
   sources?: Array<{         // Optional array of learning sources
     id: string,             // Unique identifier for the source
     title: string,          // Display name of the source
@@ -61,6 +63,24 @@ const initialState: TopicState = {
  * when topic data changes
  */
 export const topicStore = writable<TopicState>(initialState)
+
+/**
+ * Helper function to convert backend StudyTopic to frontend Topic format
+ * @param studyTopic - Backend StudyTopic object
+ * @returns Frontend Topic object
+ */
+function convertStudyTopicToTopic(studyTopic: StudyTopic): Topic {
+  return {
+    id: studyTopic.topic_id,
+    title: studyTopic.name,
+    description: studyTopic.description,
+    status: 'completed', // Default status for topics from backend
+    createdAt: studyTopic.created_at,
+    updatedAt: studyTopic.updated_at,
+    use_knowledge_graph: studyTopic.use_knowledge_graph,
+    sources: [] // Initialize empty sources array
+  }
+}
 
 /**
  * Topic Actions - Collection of functions to modify topic state
@@ -161,34 +181,84 @@ export const topicActions = {
   },
   
   /**
-   * Creates a new topic with default values and adds it to the store
-   * Generates a unique ID and sets initial status to 'pending'
+   * Creates a new topic via backend API and adds it to the store
    * @param name - The title/name of the new topic
    * @param description - Brief description of what the topic covers
-   * @returns The newly created topic object
+   * @param useKnowledgeGraph - Whether to enable knowledge graph for this topic
+   * @returns Promise that resolves to the newly created topic object
    */
-  createTopic: (name: string, description: string) => {
-    // Get current date in YYYY-MM-DD format
-    const now = new Date().toISOString().split('T')[0]
-    
-    // Create new topic object with default values
-    const newTopic: Topic = {
-      id: Math.random().toString(36).substr(2, 9), // Generate random ID
-      title: name,
-      description: description,
-      status: 'pending',      // New topics start as pending
-      createdAt: now,
-      updatedAt: now,
-      sources: []             // Start with empty sources array
+  createTopic: async (name: string, description: string, useKnowledgeGraph = true) => {
+    try {
+      // Set loading state
+      topicActions.setLoading(true)
+      topicActions.setError(null)
+      
+      // Create topic via backend API
+      const request: CreateStudyTopicRequest = {
+        name,
+        description: description || undefined,
+        use_knowledge_graph: useKnowledgeGraph
+      }
+      
+      const response = await apiService.createStudyTopic(request)
+      
+      // Create frontend topic object from backend response
+      const newTopic: Topic = {
+        id: response.topic_id,
+        title: response.name,
+        description: response.description,
+        status: 'completed', // Topics created successfully are marked as completed
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        use_knowledge_graph: response.use_knowledge_graph,
+        sources: []
+      }
+      
+      // Add the new topic to the store (at the beginning of the array)
+      topicStore.update(state => ({
+        ...state,
+        topics: [newTopic, ...state.topics],
+        isLoading: false
+      }))
+      
+      return newTopic
+      
+    } catch (error) {
+      console.error('Failed to create topic:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create topic'
+      topicActions.setError(errorMessage)
+      topicActions.setLoading(false)
+      throw error
     }
-    
-    // Add the new topic to the store (at the beginning of the array)
-    topicStore.update(state => ({
-      ...state,
-      topics: [newTopic, ...state.topics]
-    }))
-    
-    // Return the created topic for further use if needed
-    return newTopic
+  },
+
+  /**
+   * Loads topics from the backend API
+   * @param limit - Maximum number of topics to fetch
+   * @param offset - Number of topics to skip
+   */
+  loadTopics: async (limit = 100, offset = 0) => {
+    try {
+      topicActions.setLoading(true)
+      topicActions.setError(null)
+      
+      const response = await apiService.getStudyTopics(limit, offset)
+      const topics = response.topics.map(convertStudyTopicToTopic)
+      
+      topicStore.update(state => ({
+        ...state,
+        topics,
+        isLoading: false
+      }))
+      
+      return topics
+      
+    } catch (error) {
+      console.error('Failed to load topics:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load topics'
+      topicActions.setError(errorMessage)
+      topicActions.setLoading(false)
+      throw error
+    }
   }
 }

@@ -15,6 +15,7 @@
 
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
+  import { apiService, type CreateStudyTopicRequest, type CreateStudyTopicResponse } from '../services/api'
   
   // Props
   export let isOpen = false  // Controls modal visibility from parent component
@@ -25,7 +26,9 @@
   // Form state variables
   let topicName = ''         // User input for topic name
   let topicDescription = ''  // User input for topic description
+  let useKnowledgeGraph = true  // Knowledge graph option (default enabled)
   let isCreating = false     // Loading state during topic creation
+  let errorMessage = ''      // Error message for failed creation
   
   /**
    * Closes the modal and resets form state
@@ -43,30 +46,55 @@
   function resetForm() {
     topicName = ''
     topicDescription = ''
+    useKnowledgeGraph = true
     isCreating = false
+    errorMessage = ''
   }
   
   /**
    * Handles topic creation form submission
-   * Validates inputs and dispatches creation event with form data
+   * Validates inputs and calls the backend API to create the topic
    */
-  function handleCreate() {
+  async function handleCreate() {
     // Validate required fields
-    if (!topicName.trim() || !topicDescription.trim()) {
-      return  // Don't proceed if validation fails
+    if (!topicName.trim()) {
+      errorMessage = 'Topic name is required'
+      return
     }
+    
+    // Clear any previous error
+    errorMessage = ''
     
     // Set loading state
     isCreating = true
     
-    // Simulate API call delay (replace with actual API call)
-    setTimeout(() => {
-      dispatch('create', {
+    try {
+      // Call the backend API to create the study topic
+      const request: CreateStudyTopicRequest = {
         name: topicName.trim(),
-        description: topicDescription.trim()
+        description: topicDescription.trim() || undefined,
+        use_knowledge_graph: useKnowledgeGraph
+      }
+      
+      const response: CreateStudyTopicResponse = await apiService.createStudyTopic(request)
+      
+      // Dispatch success event with the created topic data
+      dispatch('create', {
+        topic_id: response.topic_id,
+        name: response.name,
+        description: response.description,
+        use_knowledge_graph: response.use_knowledge_graph
       })
+      
+      // Reset form and close modal
       resetForm()
-    }, 500)
+      dispatch('close')
+      
+    } catch (error) {
+      console.error('Failed to create study topic:', error)
+      errorMessage = error instanceof Error ? error.message : 'Failed to create topic. Please try again.'
+      isCreating = false
+    }
   }
   
   /**
@@ -93,10 +121,10 @@
   
   /**
    * Reactive statement that validates form completeness
-   * Updates automatically when user types in either input field
+   * Updates automatically when user types in the input field
    * Used to enable/disable the Create button
    */
-  $: isFormValid = topicName.trim() && topicDescription.trim()
+  $: isFormValid = topicName.trim() // Only topic name is required
 </script>
 
 <!-- 
@@ -186,10 +214,10 @@
         </div>
         
         <!-- Topic Description Textarea Field -->
-        <div class="mb-6">
+        <div class="mb-4">
           <!-- Label with proper association to textarea -->
           <label for="topic-description" class="block font-bold font-mono mb-2 text-sm text-black">
-            Description
+            Description <span class="text-gray-500 font-normal">(optional)</span>
           </label>
           <!-- Textarea with resize disabled and proper binding -->
           <textarea
@@ -201,6 +229,31 @@
             disabled={isCreating}
           ></textarea>
         </div>
+        
+        <!-- Knowledge Graph Toggle -->
+        <div class="mb-6">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              bind:checked={useKnowledgeGraph}
+              disabled={isCreating}
+              class="w-4 h-4 border-2 border-black rounded"
+            />
+            <span class="font-bold font-mono text-sm text-black">
+              Use Knowledge Graph
+            </span>
+          </label>
+          <p class="text-xs text-gray-600 mt-1 ml-7">
+            Enable AI-powered knowledge graph generation for this topic
+          </p>
+        </div>
+        
+        <!-- Error Message -->
+        {#if errorMessage}
+          <div class="mb-4 p-3 bg-red-100 border-2 border-red-500 rounded">
+            <p class="text-red-700 text-sm font-mono">{errorMessage}</p>
+          </div>
+        {/if}
         
         <!-- 
           Action Buttons Section

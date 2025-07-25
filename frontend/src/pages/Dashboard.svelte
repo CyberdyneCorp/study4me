@@ -169,12 +169,31 @@
   
   /**
    * Creates a new topic from the modal form data
-   * @param event - Custom event containing form data (name, description)
+   * @param event - Custom event containing form data (topic_id, name, description, use_knowledge_graph)
    */
-  function handleTopicCreate(event: CustomEvent) {
-    const { name, description } = event.detail
-    topicActions.createTopic(name, description)
-    uiActions.closeTopicCreationModal()
+  async function handleTopicCreate(event: CustomEvent) {
+    const { topic_id, name, description, use_knowledge_graph } = event.detail
+    
+    try {
+      // The modal has already created the topic via API, so we just need to add it to the store
+      const newTopic = {
+        id: topic_id,
+        title: name,
+        description: description,
+        status: 'completed' as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        use_knowledge_graph: use_knowledge_graph,
+        sources: []
+      }
+      
+      // Add the topic to the store
+      topicActions.addTopic(newTopic)
+      
+    } catch (error) {
+      console.error('Failed to handle topic creation:', error)
+      // Error is already handled in the modal
+    }
   }
   
   // ========================================
