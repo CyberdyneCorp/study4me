@@ -176,18 +176,33 @@ export const topicActions = {
   },
   
   /**
-   * Removes a topic from the store permanently
+   * Removes a topic from the store permanently via backend API
    * Also clears selectedTopic if the deleted topic was selected
    * @param id - Unique identifier of the topic to delete
    */
-  deleteTopic: (id: string) => {
-    topicStore.update(state => ({
-      ...state,
-      // Remove topic from the main array
-      topics: state.topics.filter(topic => topic.id !== id),
-      // Clear selectedTopic if it was the deleted topic
-      selectedTopic: state.selectedTopic?.id === id ? null : state.selectedTopic
-    }))
+  deleteTopic: async (id: string) => {
+    try {
+      topicActions.setLoading(true)
+      topicActions.setError(null)
+      
+      // Call backend API to delete the topic
+      await apiService.deleteStudyTopic(id)
+      
+      // Remove topic from the store
+      topicStore.update(state => ({
+        ...state,
+        topics: state.topics.filter(topic => topic.id !== id),
+        selectedTopic: state.selectedTopic?.id === id ? null : state.selectedTopic,
+        isLoading: false
+      }))
+      
+    } catch (error) {
+      console.error('Failed to delete topic:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete topic'
+      topicActions.setError(errorMessage)
+      topicActions.setLoading(false)
+      throw error
+    }
   },
   
   /**

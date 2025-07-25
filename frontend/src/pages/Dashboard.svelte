@@ -29,62 +29,71 @@
   import ConfirmModal from '../components/ConfirmModal.svelte'   // Confirmation dialog for destructive actions
   import TopicCreationModal from '../components/TopicCreationModal.svelte' // New topic creation form
   
-  onMount(() => {
-    // Sample topics for demonstration
-    topicActions.setTopics([
-      {
-        id: '1',
-        title: 'Machine Learning Fundamentals',
-        description: 'Basic concepts of ML algorithms and applications',
-        status: 'completed',
-        createdAt: '2024-01-15',
-        updatedAt: '2024-01-16',
-        sources: [
-          { id: '1', title: 'Introduction to ML', type: 'PDF' },
-          { id: '2', title: 'Neural Networks Basics', type: 'Video' },
-          { id: '3', title: 'Supervised Learning Guide', type: 'Article' }
-        ]
-      },
-      {
-        id: '2',
-        title: 'Quantum Computing Basics',
-        description: 'Introduction to quantum mechanics and quantum algorithms',
-        status: 'processing',
-        createdAt: '2024-01-16',
-        updatedAt: '2024-01-16',
-        sources: [
-          { id: '4', title: 'Quantum Mechanics Primer', type: 'PDF' },
-          { id: '5', title: 'Qubits and Quantum Gates', type: 'Video' }
-        ]
-      },
-      {
-        id: '3',
-        title: 'Web Development Essentials',
-        description: 'Modern web technologies including React, Node.js, and database design',
-        status: 'completed',
-        createdAt: '2024-01-12',
-        updatedAt: '2024-01-14',
-        sources: [
-          { id: '6', title: 'React Fundamentals', type: 'PDF' },
-          { id: '7', title: 'Node.js Backend Tutorial', type: 'Video' },
-          { id: '8', title: 'Database Design Patterns', type: 'Article' },
-          { id: '9', title: 'CSS Grid and Flexbox', type: 'PDF' }
-        ]
-      },
-      {
-        id: '4',
-        title: 'Data Structures & Algorithms',
-        description: 'Core computer science concepts for technical interviews and problem solving',
-        status: 'processing',
-        createdAt: '2024-01-18',
-        updatedAt: '2024-01-18',
-        sources: [
-          { id: '10', title: 'Big O Notation Guide', type: 'PDF' },
-          { id: '11', title: 'Binary Trees Explained', type: 'Video' },
-          { id: '12', title: 'Dynamic Programming Patterns', type: 'Article' }
-        ]
-      }
-    ])
+  onMount(async () => {
+    // Load topics from backend on component mount
+    try {
+      console.log('📚 Loading topics from backend...')
+      await topicActions.loadTopics()
+      console.log('✅ Topics loaded successfully')
+    } catch (error) {
+      console.error('❌ Failed to load topics:', error)
+      // If backend loading fails, keep sample topics for demo purposes
+      console.log('🔄 Falling back to sample topics for demonstration')
+      topicActions.setTopics([
+        {
+          id: '1',
+          title: 'Machine Learning Fundamentals',
+          description: 'Basic concepts of ML algorithms and applications',
+          status: 'completed',
+          createdAt: '2024-01-15',
+          updatedAt: '2024-01-16',
+          sources: [
+            { id: '1', title: 'Introduction to ML', type: 'PDF' },
+            { id: '2', title: 'Neural Networks Basics', type: 'Video' },
+            { id: '3', title: 'Supervised Learning Guide', type: 'Article' }
+          ]
+        },
+        {
+          id: '2',
+          title: 'Quantum Computing Basics',
+          description: 'Introduction to quantum mechanics and quantum algorithms',
+          status: 'processing',
+          createdAt: '2024-01-16',
+          updatedAt: '2024-01-16',
+          sources: [
+            { id: '4', title: 'Quantum Mechanics Primer', type: 'PDF' },
+            { id: '5', title: 'Qubits and Quantum Gates', type: 'Video' }
+          ]
+        },
+        {
+          id: '3',
+          title: 'Web Development Essentials',
+          description: 'Modern web technologies including React, Node.js, and database design',
+          status: 'completed',
+          createdAt: '2024-01-12',
+          updatedAt: '2024-01-14',
+          sources: [
+            { id: '6', title: 'React Fundamentals', type: 'PDF' },
+            { id: '7', title: 'Node.js Backend Tutorial', type: 'Video' },
+            { id: '8', title: 'Database Design Patterns', type: 'Article' },
+            { id: '9', title: 'CSS Grid and Flexbox', type: 'PDF' }
+          ]
+        },
+        {
+          id: '4',
+          title: 'Data Structures & Algorithms',
+          description: 'Core computer science concepts for technical interviews and problem solving',
+          status: 'processing',
+          createdAt: '2024-01-18',
+          updatedAt: '2024-01-18',
+          sources: [
+            { id: '10', title: 'Big O Notation Guide', type: 'PDF' },
+            { id: '11', title: 'Binary Trees Explained', type: 'Video' },
+            { id: '12', title: 'Dynamic Programming Patterns', type: 'Article' }
+          ]
+        }
+      ])
+    }
   })
   
   // ========================================
@@ -136,10 +145,16 @@
       confirmText: 'Delete',
       cancelText: 'Cancel',
       isDangerous: true, // Applies red styling to confirm button
-      onConfirm: () => {
-        // Actually delete the topic and close the modal
-        topicActions.deleteTopic(topicId)
-        uiActions.closeConfirmModal()
+      onConfirm: async () => {
+        try {
+          // Actually delete the topic via backend API
+          await topicActions.deleteTopic(topicId)
+          uiActions.closeConfirmModal()
+        } catch (error) {
+          // Error is already handled in the topicActions.deleteTopic function
+          // The modal stays open so user can see the error and try again
+          console.error('Delete topic failed:', error)
+        }
       }
     }
     uiActions.openConfirmModal(confirmData)
@@ -258,9 +273,23 @@
 <main class="max-w-7xl mx-auto p-8">
   <!-- Dashboard Header Section -->
   <div class="mb-8">
-    <h1 class="text-4xl font-bold mb-4 text-black font-mono">
-      Dashboard
-    </h1>
+    <div class="flex items-center justify-between mb-4">
+      <h1 class="text-4xl font-bold text-black font-mono">
+        Dashboard
+      </h1>
+      <button 
+        on:click={() => topicActions.loadTopics()}
+        disabled={$topicStore.isLoading}
+        class="bg-gray-100 text-black border-2 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        title="Refresh topics from server"
+      >
+        <!-- Refresh icon -->
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="{$topicStore.isLoading ? 'animate-spin' : ''}">
+          <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+        </svg>
+        Refresh
+      </button>
+    </div>
     <p class="text-lg text-secondary-text mb-6">
       Manage your study topics and knowledge graphs
     </p>
@@ -371,7 +400,18 @@
       </div>
     {/each}
     
-    {#if $topicStore.topics.length === 0}
+    {#if $topicStore.isLoading}
+      <div class="col-span-full">
+        <div class="bg-white border-4 border-black rounded p-12 text-center">
+          <div class="flex items-center justify-center gap-3 mb-4">
+            <!-- Loading spinner -->
+            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-black"></div>
+            <h3 class="text-xl font-bold text-black font-mono">Loading topics...</h3>
+          </div>
+          <p class="text-secondary-text">Fetching your study topics from the server</p>
+        </div>
+      </div>
+    {:else if $topicStore.topics.length === 0}
       <div class="col-span-full">
         <div class="bg-white border-4 border-black rounded p-12 text-center">
           <h3 class="text-xl font-bold mb-4 text-black font-mono">No topics yet</h3>
@@ -381,6 +421,21 @@
             class="bg-brand-blue text-white border-4 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer hover:bg-opacity-90"
           >
             Create Topic
+          </button>
+        </div>
+      </div>
+    {/if}
+    
+    {#if $topicStore.error}
+      <div class="col-span-full">
+        <div class="bg-red-100 border-4 border-red-500 rounded p-6 text-center">
+          <h3 class="text-lg font-bold mb-2 text-red-700 font-mono">Error Loading Topics</h3>
+          <p class="text-red-600 mb-4">{$topicStore.error}</p>
+          <button 
+            on:click={() => topicActions.loadTopics()}
+            class="bg-red-500 text-white border-2 border-red-700 rounded px-4 py-2 font-mono font-bold cursor-pointer hover:bg-red-600"
+          >
+            Retry
           </button>
         </div>
       </div>
