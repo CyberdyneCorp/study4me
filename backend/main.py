@@ -54,22 +54,8 @@ os.makedirs(RAG_DIR, exist_ok=True)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s')
 logger = logging.getLogger("ingest_kgraph")
 
-# === OpenAI Key Check ===
+# === OpenAI Key Check (Moved to lifespan for graceful failure) ===
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    logger.error("❌ OPENAI_API_KEY environment variable is not set!")
-    logger.error("Please set your OpenAI API key:")
-    logger.error("  1. Create a .env file in the backend directory")
-    logger.error("  2. Add: OPENAI_API_KEY=your_actual_api_key_here")
-    logger.error("  3. Get your API key from: https://platform.openai.com/account/api-keys")
-    raise RuntimeError("OPENAI_API_KEY environment variable must be set. Check logs for setup instructions.")
-
-if OPENAI_API_KEY in ["your_openai_api_key_here", "your_actual_api_key_here", "test-key-for-import-check"]:
-    logger.error("❌ OPENAI_API_KEY is set to a placeholder value!")
-    logger.error("Please set your actual OpenAI API key:")
-    logger.error("  1. Get your API key from: https://platform.openai.com/account/api-keys")
-    logger.error("  2. Update your .env file with: OPENAI_API_KEY=your_actual_api_key_here")
-    raise RuntimeError("OPENAI_API_KEY must be set to your actual OpenAI API key, not a placeholder.")
 
 async def validate_openai_api_key(api_key: str) -> bool:
     """Validate OpenAI API key by making a test call"""
@@ -156,10 +142,32 @@ async def lifespan(app: FastAPI):
     logger.info("✅ Database initialized.")
     
     logger.info("🔑 Validating OpenAI API key...")
+    
+    # Check if API key is set
+    if not OPENAI_API_KEY:
+        logger.error("❌ OPENAI_API_KEY environment variable is not set!")
+        logger.error("Please set your OpenAI API key:")
+        logger.error("  1. Create a .env file in the backend directory")
+        logger.error("  2. Add: OPENAI_API_KEY=your_actual_api_key_here")
+        logger.error("  3. Get your API key from: https://platform.openai.com/account/api-keys")
+        logger.error("🛑 Server startup aborted. Set your API key and restart.")
+        raise RuntimeError("OPENAI_API_KEY environment variable must be set. Check logs for setup instructions.")
+    
+    # Check if API key is a placeholder
+    if OPENAI_API_KEY in ["your_openai_api_key_here", "your_actual_api_key_here", "test-key-for-import-check"]:
+        logger.error("❌ OPENAI_API_KEY is set to a placeholder value!")
+        logger.error("Please set your actual OpenAI API key:")
+        logger.error("  1. Get your API key from: https://platform.openai.com/account/api-keys")
+        logger.error("  2. Update your .env file with: OPENAI_API_KEY=your_actual_api_key_here")
+        logger.error("🛑 Server startup aborted. Set a real API key and restart.")
+        raise RuntimeError("OPENAI_API_KEY must be set to your actual OpenAI API key, not a placeholder.")
+    
+    # Validate API key with OpenAI
     is_valid = await validate_openai_api_key(OPENAI_API_KEY)
     if not is_valid:
         logger.error("❌ Cannot start server with invalid OpenAI API key!")
-        logger.error("Please set a valid API key and restart the server.")
+        logger.error("Please check your API key and restart the server.")
+        logger.error("🛑 Server startup aborted. Set a valid API key and restart.")
         raise RuntimeError("Invalid OpenAI API key. Server startup aborted.")
     logger.info("✅ OpenAI API key validated successfully.")
     
