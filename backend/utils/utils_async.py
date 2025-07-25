@@ -30,10 +30,17 @@ async def process_uploaded_documents(saved_paths, rag: LightRAG, callback_url: O
     converter = DocumentConverter()
 
     for filename, file_path in saved_paths:
-        # Check for shutdown signal
+        # Check for shutdown signal or cancellation
         if shutdown_event and shutdown_event.is_set():
             logger.info(f"[{filename}] Shutdown signal received, stopping processing")
             return
+        
+        # Check for asyncio cancellation
+        try:
+            await asyncio.sleep(0)  # Yield control and check for cancellation
+        except asyncio.CancelledError:
+            logger.info(f"[{filename}] Task cancelled, stopping processing")
+            raise
         start_total = time.perf_counter()
         logger.info(f"[{filename}] Starting ingestion...")
 
@@ -115,6 +122,13 @@ async def process_image_background(
     if shutdown_event and shutdown_event.is_set():
         logger.info(f"[{filename}] Shutdown signal received, cancelling image processing")
         return
+        
+    # Check for asyncio cancellation
+    try:
+        await asyncio.sleep(0)  # Yield control and check for cancellation
+    except asyncio.CancelledError:
+        logger.info(f"[{filename}] Task cancelled, stopping image processing")
+        raise
         
     start_total = time.perf_counter()
     logger.info(f"[{filename}] Starting image interpretation...")
@@ -223,6 +237,13 @@ async def process_webpage_background(
         logger.info(f"[webpage] Shutdown signal received, cancelling webpage processing")
         return
         
+    # Check for asyncio cancellation
+    try:
+        await asyncio.sleep(0)  # Yield control and check for cancellation
+    except asyncio.CancelledError:
+        logger.info(f"[webpage] Task cancelled, stopping webpage processing")
+        raise
+        
     start_total = time.perf_counter()
     logger.info(f"[webpage] Starting ingestion for: {url}")
 
@@ -308,6 +329,13 @@ async def process_query_background(
     if shutdown_event and shutdown_event.is_set():
         logger.info(f"🧠 [bg-{short_id}] Shutdown signal received, cancelling query processing")
         return
+    
+    # Check for asyncio cancellation
+    try:
+        await asyncio.sleep(0)  # Yield control and check for cancellation
+    except asyncio.CancelledError:
+        logger.info(f"🧠 [bg-{short_id}] Task cancelled, stopping query processing")
+        raise
     
     logger.info(f"🧠 [bg-{short_id}] Starting background query processing")
     logger.info(f"📊 [bg-{short_id}] Query stats: {len(query)} chars, mode='{mode}'")
@@ -448,6 +476,13 @@ async def process_youtube_background(
     if shutdown_event and shutdown_event.is_set():
         logger.info(f"📺 [yt-{short_id}] Shutdown signal received, cancelling YouTube processing")
         return
+    
+    # Check for asyncio cancellation
+    try:
+        await asyncio.sleep(0)  # Yield control and check for cancellation
+    except asyncio.CancelledError:
+        logger.info(f"📺 [yt-{short_id}] Task cancelled, stopping YouTube processing")
+        raise
     
     logger.info(f"📺 [yt-{short_id}] Starting YouTube video processing")
     logger.info(f"🔗 [yt-{short_id}] URL: {url}")

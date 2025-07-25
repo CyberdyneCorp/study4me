@@ -201,15 +201,31 @@ async def lifespan(app: FastAPI):
             try:
                 await asyncio.wait_for(
                     asyncio.gather(*BACKGROUND_TASKS, return_exceptions=True),
-                    timeout=10.0
+                    timeout=5.0  # Reduced timeout
                 )
                 logger.info("✅ All background tasks completed.")
             except asyncio.TimeoutError:
-                logger.warning("⚠️ Background tasks did not complete within 10 seconds, forcing shutdown.")
-                # Cancel remaining tasks
-                for task in BACKGROUND_TASKS:
+                logger.warning("⚠️ Background tasks did not complete within 5 seconds, forcing shutdown.")
+                # Cancel remaining tasks aggressively
+                cancelled_tasks = []
+                for task in BACKGROUND_TASKS.copy():  # Use copy to avoid modification during iteration
                     if not task.done():
                         task.cancel()
+                        cancelled_tasks.append(task)
+                
+                # Wait a bit for cancellations to take effect
+                if cancelled_tasks:
+                    logger.info(f"🚫 Cancelled {len(cancelled_tasks)} background tasks")
+                    try:
+                        await asyncio.wait_for(
+                            asyncio.gather(*cancelled_tasks, return_exceptions=True),
+                            timeout=2.0
+                        )
+                    except asyncio.TimeoutError:
+                        logger.warning("⚠️ Some tasks still didn't respond to cancellation")
+                
+                # Clear the set
+                BACKGROUND_TASKS.clear()
         
         # Finalize LightRAG
         if rag:
@@ -275,8 +291,6 @@ async def upload_documents(
         TASK_STATUS[task_id] = "processing"
     
     async def process_with_tracking():
-        task = asyncio.current_task()
-        BACKGROUND_TASKS.add(task)
         try:
             await process_uploaded_documents(saved_paths, rag, callback_url)
             with TASK_LOCK:
@@ -285,16 +299,16 @@ async def upload_documents(
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "failed"
             logger.error(f"[{task_id}] Background task failed: {e}")
-        finally:
-            BACKGROUND_TASKS.discard(task)
     
-    def fire_and_forget():
-        try:
-            asyncio.run(process_with_tracking())
-        except Exception as e:
-            logger.error(f"[{task_id}] Fire and forget wrapper failed: {e}")
+    # Create and track the background task
+    task = asyncio.create_task(process_with_tracking())
+    BACKGROUND_TASKS.add(task)
     
-    background_tasks.add_task(fire_and_forget)
+    # Add cleanup when task completes
+    def cleanup_task(finished_task):
+        BACKGROUND_TASKS.discard(finished_task)
+    
+    task.add_done_callback(cleanup_task)
 
     return {"status": "processing", "files": [name for name, _ in saved_paths], "task_id": task_id}
 
@@ -421,8 +435,6 @@ async def process_webpage(
         TASK_STATUS[task_id] = "processing"
     
     async def process_with_tracking():
-        task = asyncio.current_task()
-        BACKGROUND_TASKS.add(task)
         try:
             await process_webpage_background(url, rag, callback_url)
             with TASK_LOCK:
@@ -431,17 +443,16 @@ async def process_webpage(
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "failed"
             logger.error(f"[{task_id}] Background task failed: {e}")
-        finally:
-            BACKGROUND_TASKS.discard(task)
     
-    async def fire_and_forget():
-        try:
-            await process_with_tracking()
-        except Exception as e:
-            logger.error(f"[{task_id}] Fire and forget wrapper failed: {e}")
-    
-    task = asyncio.create_task(fire_and_forget())
+    # Create and track the background task
+    task = asyncio.create_task(process_with_tracking())
     BACKGROUND_TASKS.add(task)
+    
+    # Add cleanup when task completes
+    def cleanup_task(finished_task):
+        BACKGROUND_TASKS.discard(finished_task)
+    
+    task.add_done_callback(cleanup_task)
     
     return {"status": "processing", "url": url, "task_id": task_id}
 
@@ -464,8 +475,6 @@ async def process_youtube_video(
         TASK_STATUS[task_id] = "processing"
 
     async def process_with_tracking():
-        task = asyncio.current_task()
-        BACKGROUND_TASKS.add(task)
         try:
             logger.info(f"⚙️ [youtube-{task_id[:8]}] Starting background processing...")
             start_bg = time.perf_counter()
@@ -484,11 +493,16 @@ async def process_youtube_video(
             
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "failed"
-        finally:
-            BACKGROUND_TASKS.discard(task)
     
+    # Create and track the background task
     task = asyncio.create_task(process_with_tracking())
     BACKGROUND_TASKS.add(task)
+    
+    # Add cleanup when task completes
+    def cleanup_task(finished_task):
+        BACKGROUND_TASKS.discard(finished_task)
+    
+    task.add_done_callback(cleanup_task)
     
     logger.info(f"📤 [youtube-{task_id[:8]}] YouTube processing queued successfully")
     return {
@@ -585,8 +599,6 @@ async def query_rag_async(
         TASK_STATUS[task_id] = "processing"
 
     async def process_with_tracking():
-        task = asyncio.current_task()
-        BACKGROUND_TASKS.add(task)
         try:
             logger.info(f"⚙️ [async-{task_id[:8]}] Starting background processing...")
             start_bg = time.perf_counter()
@@ -605,11 +617,16 @@ async def query_rag_async(
             
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "failed"
-        finally:
-            BACKGROUND_TASKS.discard(task)
     
+    # Create and track the background task
     task = asyncio.create_task(process_with_tracking())
     BACKGROUND_TASKS.add(task)
+    
+    # Add cleanup when task completes
+    def cleanup_task(finished_task):
+        BACKGROUND_TASKS.discard(finished_task)
+    
+    task.add_done_callback(cleanup_task)
     
     logger.info(f"📤 [async-{task_id[:8]}] Async query queued successfully")
     return {
@@ -692,8 +709,6 @@ async def interpret_image(
         TASK_STATUS[task_id] = "processing"
     
     async def process_with_tracking():
-        task = asyncio.current_task()
-        BACKGROUND_TASKS.add(task)
         try:
             await process_image_background(file_path, prompt, image.filename, openai_client, rag, callback_url)
             with TASK_LOCK:
@@ -702,11 +717,16 @@ async def interpret_image(
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "failed"
             logger.error(f"[{task_id}] Background task failed: {e}")
-        finally:
-            BACKGROUND_TASKS.discard(task)
     
+    # Create and track the background task
     task = asyncio.create_task(process_with_tracking())
     BACKGROUND_TASKS.add(task)
+    
+    # Add cleanup when task completes
+    def cleanup_task(finished_task):
+        BACKGROUND_TASKS.discard(finished_task)
+    
+    task.add_done_callback(cleanup_task)
 
     return {"status": "processing", "filename": image.filename, "task_id": task_id}
     
