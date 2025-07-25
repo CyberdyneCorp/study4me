@@ -55,6 +55,12 @@ Our frontend is a Single Page Application (SPA) built with Svelte and bundled wi
 - **Secondary Text:** #222222 (Dark Gray)  
 - **Borders & Text:** #000000 (Black)
 
+#### Neo-Brutalism Extended Palette
+- **Cyan:** #7DF9FF (Context mode indicators)
+- **Red:** #FF4911 (Graph mode indicators)  
+- **Magenta:** #FF00F5 (Book character accents)
+- **Yellow:** #FFFF00 (Book character primary)
+
 ### Typography
 
 - **Headings & Code:** IBM Plex Mono, JetBrains Mono, or Space Mono  
@@ -88,10 +94,11 @@ src/
     …
   stores/
     auth.ts
-    topicStore.ts
-    uiStore.ts
+    topicStore.ts      # Backend integrated CRUD operations
+    uiStore.ts         # Modal and UI state management
+    web3AuthStore.ts   # Web3Auth integration
   services/
-    api.ts
+    api.ts             # Backend API service with TypeScript interfaces
     ipfs.ts
     web3.ts
   App.svelte
@@ -110,8 +117,9 @@ src/
 We use Svelte’s built-in writable and derived stores for global state:
 
 - **auth.ts:** Holds wallet connection status, NFT ownership flag, user address.
-- **topicStore.ts:** Tracks current topics list, selected topic details, ingestion status.
+- **topicStore.ts:** Manages study topics with full backend CRUD integration, loading states, error handling, and fallback mechanisms.
 - **uiStore.ts:** Manages UI flags (e.g., loading spinners, modals open/closed, chat modal state, sources modal state, confirmation modal state with customizable actions).
+- **web3AuthStore.ts:** Handles Web3Auth integration for social authentication and wallet connections.
 
 ### Sharing State
 
@@ -164,15 +172,21 @@ Please don't use Router library
 
 ### Dashboard Layout
 
-- **Header:** Study4Me title with small MCP toggle below, Dashboard indicator, and Connect Wallet button
+- **Header:** Study4Me title with Dashboard indicator, refresh button, and Connect Wallet button
 - **Topic Cards:** White cards with thick black borders containing:
-  - Title in IBM Plex Mono font
+  - **Book Character Icon:** Cute yellow book mascot in top-left corner with smiling face and magenta bookmark
+  - **Dynamic Mode Flags:** Top-right corner indicators based on backend configuration:
+    - 🔴 **Red "Graph" flag:** Topics with `use_knowledge_graph: true` (with network icon)
+    - 🔵 **Cyan "Context" flag:** Topics with `use_knowledge_graph: false` (with document icon)
+  - Title in IBM Plex Mono font with left padding to accommodate book icon
   - Description text
   - Status badge (completed/processing) with appropriate colors
-  - Date information
-  - Three action buttons: Study (blue), Add/Remove Sources (pink), Graph (red, top-right)
+  - Date information in YYYY-MM-DD format
+  - Three action buttons: Study (blue), Add/Remove Sources (pink)
   - Delete button (red, bottom-right corner) with trash icon for topic removal
 - **Card Sizing:** Fixed dimensions with minimum width of 20rem and maximum width of 30rem to prevent stretching when cards are deleted
+- **Loading States:** Animated spinner and loading messages during API operations
+- **Error Handling:** Error displays with retry functionality
 
 ### Button Color System
 
@@ -278,17 +292,72 @@ Please don't use Router library
   - **Extensible Design:** Can be reused for other destructive actions across the application
   - **Callback System:** onConfirm function allows for flexible action handling per use case
 
-## 10. Conclusion and Overall Frontend Summary
+## 10. Backend Integration and API Management
 
-Study4Me's frontend prototype demonstrates the Neobrutalist design principles with a clean, functional dashboard and interactive chat interface. The current implementation focuses on:
+### Study Topics API Integration
+
+The frontend integrates seamlessly with the Study4Me FastAPI backend for complete topic lifecycle management:
+
+#### API Service Architecture
+- **Centralized Service:** All backend communication handled through `services/api.ts`
+- **TypeScript Interfaces:** Full type safety with backend response models
+- **Error Handling:** Comprehensive error catching and user feedback
+- **Environment Configuration:** Backend URL configurable via `VITE_BACKEND_URL`
+
+#### Topic CRUD Operations
+```typescript
+// Create new topic
+const response = await apiService.createStudyTopic({
+  name: 'Topic Name',
+  description: 'Optional description',
+  use_knowledge_graph: true
+})
+
+// Load all topics
+const topics = await apiService.getStudyTopics(limit, offset)
+
+// Delete topic with confirmation
+await apiService.deleteStudyTopic(topicId)
+```
+
+#### Topic Store Integration
+- **Reactive Updates:** Svelte stores automatically update UI when data changes
+- **Loading States:** Global loading indicators during API operations
+- **Error Management:** Centralized error handling with retry mechanisms
+- **Fallback Data:** Sample topics displayed if backend unavailable
+
+#### Data Flow Architecture
+1. **Dashboard Mount:** Auto-loads topics from backend via `topicActions.loadTopics()`
+2. **Topic Creation:** Modal form calls backend API, updates local store on success
+3. **Topic Deletion:** Confirmation modal → backend API call → local store update
+4. **Error Handling:** Failed operations display user-friendly error messages with retry options
+
+#### Visual Backend Integration Indicators
+- **Dynamic Flags:** Red/Cyan flags based on `use_knowledge_graph` backend setting
+- **Date Consistency:** YYYY-MM-DD format matching backend timestamps
+- **Status Mapping:** Backend status fields mapped to frontend display states
+- **Real-time Refresh:** Manual refresh button to sync with backend state
+
+#### Offline Resilience
+- **Graceful Degradation:** Fallback to sample data if backend unreachable
+- **Loading Feedback:** Clear indicators when operations are in progress
+- **Error Recovery:** Retry mechanisms for failed operations
+- **State Consistency:** Local state only updated after successful backend operations
+
+## 11. Conclusion and Overall Frontend Summary
+
+Study4Me's frontend demonstrates Neobrutalist design principles with comprehensive backend integration and real-time study topic management. The current implementation focuses on:
 
 - **Bold visual hierarchy** with thick black borders and high-contrast colors
-- **Clear user actions** through color-coded button system
+- **Backend-Integrated CRUD Operations** for study topics with proper error handling
+- **Dynamic Visual Indicators** showing knowledge graph vs context-only mode
+- **Cute Book Character Mascot** adding personality to each topic card
+- **Real-time Data Synchronization** with manual refresh and auto-loading capabilities
 - **Interactive chat modal** for study sessions with topic sources and content generation tools
 - **Comprehensive sources modal** for file upload, website scraping, and YouTube video integration
-- **Safe deletion workflow** with confirmation modal for destructive actions
-- **Consistent card sizing** that prevents layout issues when content is removed
+- **Safe deletion workflow** with confirmation modal and backend API integration
+- **Resilient Error Handling** with fallback data and retry mechanisms
 - **Functional layout** that prioritizes learning workflows
 - **Scalable component structure** ready for future expansion
 
-The prototype successfully establishes the visual identity and core user interactions for the Study4Me platform, including the central chat-based learning interface and safe content management workflows, providing a solid foundation for further development.
+The implementation successfully establishes a production-ready integration between frontend and backend systems, providing users with reliable topic management, visual feedback for different study modes, and a solid foundation for the complete Study4Me learning platform.

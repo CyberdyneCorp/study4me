@@ -7,6 +7,9 @@ A Neobrutalist-styled frontend built with Svelte, Vite, and Tailwind CSS for the
 - **Neobrutalist Design**: Bold colors, thick borders, high contrast styling
 - **Responsive Layout**: Mobile-first design with Tailwind breakpoints
 - **Component-Based Architecture**: Reusable Svelte components
+- **Backend Integration**: Full CRUD operations with Study4Me backend API
+- **Real-time Topic Management**: Create, read, update, delete study topics
+- **Knowledge Graph Support**: Dynamic flags showing Graph vs Context mode
 - **Web3Auth Integration**: Social authentication with Google
 - **Blockchain Wallet Support**: WalletConnect integration for crypto wallets
 - **Type-Safe**: Full TypeScript support
@@ -32,21 +35,26 @@ src/
 │   ├── Card.svelte
 │   ├── Input.svelte
 │   ├── Navbar.svelte
+│   ├── ChatModal.svelte      # AI chat interface for study sessions
+│   ├── SourcesModal.svelte   # File upload and source management
+│   ├── ConfirmModal.svelte   # Confirmation dialogs
+│   ├── TopicCreationModal.svelte  # New topic creation form
 │   ├── WalletModal.svelte    # Web3Auth wallet connection modal
 │   └── GraphViewer.svelte
 ├── pages/              # Page components
-│   ├── Dashboard.svelte
+│   ├── Dashboard.svelte      # Main dashboard with topic cards
 │   ├── TopicCreation.svelte
 │   ├── TopicDetail.svelte
 │   └── Settings.svelte
 ├── stores/             # Svelte stores for state management
 │   ├── auth.ts
-│   ├── topicStore.ts
-│   ├── uiStore.ts
+│   ├── topicStore.ts         # Topic CRUD operations and state
+│   ├── uiStore.ts           # Modal and UI state management
 │   └── web3AuthStore.ts      # Web3Auth state management
+├── services/           # API and external service integrations
+│   └── api.ts               # Backend API service with TypeScript interfaces
 ├── lib/                # Service layers and utilities
 │   ├── web3AuthService.ts    # Web3Auth integration service
-│   ├── api.ts
 │   ├── web3.ts
 │   └── ipfs.ts
 ├── App.svelte         # Main app component
@@ -59,6 +67,7 @@ src/
 ### Prerequisites
 - Node.js 18+ and npm
 - Web3Auth Client ID (get from [Web3Auth Dashboard](https://dashboard.web3auth.io/))
+- Study4Me Backend API running (see backend README)
 
 ### Setup
 
@@ -96,6 +105,11 @@ src/
 - **Accent Red**: #FF2C2C (Red Alert)
 - **Secondary Text**: #222222 (Dark Gray)
 - **Borders & Text**: #000000 (Black)
+- **Neo-Brutalism Colors**:
+  - Cyan: #7DF9FF (Context mode flag)
+  - Red: #FF4911 (Graph mode flag)
+  - Magenta: #FF00F5 (Accents)
+  - Yellow: #FFFF00 (Book character)
 
 ### Typography
 - **Headings**: IBM Plex Mono, JetBrains Mono, Space Mono
@@ -139,7 +153,10 @@ VITE_TICKER_NAME=Ethereum
 VITE_APP_NAME=Study4Me
 VITE_APP_LOGO=https://your-app-logo.com/logo.png
 
-# API Configuration
+# Backend API Configuration
+VITE_BACKEND_URL=http://localhost:8000
+
+# Legacy API Configuration (if using old endpoints)
 VITE_API_BASE_URL=http://localhost:8000
 VITE_PINATA_JWT=your_pinata_jwt_token
 ```
@@ -180,6 +197,50 @@ await loginWithWeb3Auth('google')
 // Logout
 await logoutFromWeb3Auth()
 ```
+
+## Backend Integration
+
+### Study Topics Management
+
+The frontend integrates with the Study4Me backend API for full CRUD operations on study topics.
+
+#### Features
+- **Create Topics**: Modal form with knowledge graph toggle
+- **Read Topics**: Auto-load on dashboard mount with refresh capability
+- **Update Topics**: Support for topic modifications (coming soon)
+- **Delete Topics**: Confirmation modal with backend API call
+
+#### Topic Cards Display
+- **Dynamic Flags**: Visual indicators based on backend configuration
+  - 🔴 **Red "Graph" flag**: Topics with `use_knowledge_graph: true`
+  - 🔵 **Cyan "Context" flag**: Topics with `use_knowledge_graph: false`
+- **Book Character**: Cute mascot icon on each topic card
+- **Status Indicators**: Completed/Processing status with color coding
+- **Action Buttons**: Study, Add/Remove Sources, Delete
+
+#### API Service Integration
+```typescript
+import { apiService } from '../services/api'
+
+// Create a new study topic
+const response = await apiService.createStudyTopic({
+  name: 'Topic Name',
+  description: 'Topic Description',
+  use_knowledge_graph: true
+})
+
+// Load all topics
+const topics = await apiService.getStudyTopics()
+
+// Delete a topic
+await apiService.deleteStudyTopic(topicId)
+```
+
+#### Error Handling
+- Loading states with animated spinners
+- Error displays with retry functionality
+- Fallback to sample data if backend unavailable
+- Graceful degradation for offline scenarios
 
 ## Available Scripts
 

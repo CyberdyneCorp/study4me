@@ -47,6 +47,7 @@
           status: 'completed',
           createdAt: '2024-01-15',
           updatedAt: '2024-01-16',
+          use_knowledge_graph: true,
           sources: [
             { id: '1', title: 'Introduction to ML', type: 'PDF' },
             { id: '2', title: 'Neural Networks Basics', type: 'Video' },
@@ -60,6 +61,7 @@
           status: 'processing',
           createdAt: '2024-01-16',
           updatedAt: '2024-01-16',
+          use_knowledge_graph: false,
           sources: [
             { id: '4', title: 'Quantum Mechanics Primer', type: 'PDF' },
             { id: '5', title: 'Qubits and Quantum Gates', type: 'Video' }
@@ -72,6 +74,7 @@
           status: 'completed',
           createdAt: '2024-01-12',
           updatedAt: '2024-01-14',
+          use_knowledge_graph: true,
           sources: [
             { id: '6', title: 'React Fundamentals', type: 'PDF' },
             { id: '7', title: 'Node.js Backend Tutorial', type: 'Video' },
@@ -86,6 +89,7 @@
           status: 'processing',
           createdAt: '2024-01-18',
           updatedAt: '2024-01-18',
+          use_knowledge_graph: false,
           sources: [
             { id: '10', title: 'Big O Notation Guide', type: 'PDF' },
             { id: '11', title: 'Binary Trees Explained', type: 'Video' },
@@ -334,18 +338,45 @@
     
     {#each $topicStore.topics as topic}
       <div class="bg-white border-4 border-black rounded p-6 relative flex flex-col min-h-80">
-        <button 
-          class="absolute top-4 right-4 bg-brand-red text-white border-2 border-black rounded px-2 py-1 font-mono font-bold cursor-pointer text-xs flex items-center gap-1"
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="5" cy="5" r="3"/>
-            <circle cx="19" cy="5" r="3"/>
-            <circle cx="12" cy="19" r="3"/>
-            <line x1="5" y1="8" x2="12" y2="16" stroke="currentColor" stroke-width="2"/>
-            <line x1="19" y1="8" x2="12" y2="16" stroke="currentColor" stroke-width="2"/>
+        <!-- Dynamic flag based on use_knowledge_graph setting -->
+        <div class="absolute top-4 right-4 {topic.use_knowledge_graph ? 'bg-red-500' : 'bg-cyan-400'} text-white border-2 border-black rounded px-2 py-1 font-mono font-bold text-xs flex items-center gap-1">
+          {#if topic.use_knowledge_graph}
+            <!-- Graph icon for knowledge graph mode -->
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="5" cy="5" r="3"/>
+              <circle cx="19" cy="5" r="3"/>
+              <circle cx="12" cy="19" r="3"/>
+              <line x1="5" y1="8" x2="12" y2="16" stroke="currentColor" stroke-width="2"/>
+              <line x1="19" y1="8" x2="12" y2="16" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            Graph
+          {:else}
+            <!-- Document icon for context-only mode -->
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
+              <polyline points="14,2 14,8 20,8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10,9 9,9 8,9"/>
+            </svg>
+            Context
+          {/if}
+        </div>
+        
+        <!-- Cool book character icon in top-left -->
+        <div class="absolute top-4 left-4 text-yellow-500">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <!-- Book with cute face -->
+            <path d="M4 2v20l8-4 8 4V2H4z" fill="#FFFF00"/>
+            <path d="M4 2h16v2H4V2z" fill="#FF4911"/>
+            <!-- Cute face -->
+            <circle cx="10" cy="8" r="1" fill="black"/>
+            <circle cx="14" cy="8" r="1" fill="black"/>
+            <path d="M9 11 Q12 13 15 11" stroke="black" stroke-width="1" fill="none"/>
+            <!-- Small bookmark -->
+            <rect x="18" y="6" width="2" height="8" fill="#FF00F5"/>
           </svg>
-          Graph
-        </button>
+        </div>
         
         <!-- Delete button in bottom-right corner -->
         <button 
@@ -364,7 +395,7 @@
         
         <!-- Card Content -->
         <div class="flex-1 flex flex-col">
-          <h3 class="text-xl font-bold mb-4 text-black font-mono pr-20">
+          <h3 class="text-xl font-bold mb-4 text-black font-mono pr-20 pl-8">
             {topic.title}
           </h3>
           <p class="text-secondary-text mb-4 flex-1">
