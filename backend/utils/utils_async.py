@@ -9,10 +9,31 @@ from lightrag import LightRAG, QueryParam
 from docling.document_converter import DocumentConverter
 from .utils_ws import notify_callback
 import logging
-from .db_async import save_task_result, create_content_item
+from .db_async import save_task_result, create_content_item, get_study_topic
 import json
+import tiktoken
 
 logger = logging.getLogger(__name__)
+
+def count_tokens(text: str, model: str = "gpt-4") -> int:
+    """
+    Returns the number of tokens in a given string for a specific model.
+
+    Args:
+        text (str): The input string to tokenize.
+        model (str): The model name (e.g., "gpt-4", "gpt-3.5-turbo", "text-davinci-003").
+
+    Returns:
+        int: Number of tokens.
+    """
+    try:
+        encoding = tiktoken.encoding_for_model(model)
+    except KeyError:
+        # fallback to cl100k_base for unknown models
+        encoding = tiktoken.get_encoding("cl100k_base")
+
+    tokens = encoding.encode(text)
+    return len(tokens)
 
 # Import shutdown event from main module
 def get_shutdown_event():
@@ -29,6 +50,14 @@ async def process_uploaded_documents(saved_paths, rag: LightRAG, callback_url: O
                                    study_topic_id: str = None, content_items: list = None):
     shutdown_event = get_shutdown_event()
     converter = DocumentConverter()
+
+    # Check if study topic has knowledge graph enabled
+    use_knowledge_graph = True  # Default to true for backward compatibility
+    if study_topic_id:
+        topic = await get_study_topic(study_topic_id)
+        if topic:
+            use_knowledge_graph = topic.get('use_knowledge_graph', True)
+        logger.info(f"Study topic knowledge graph setting: {use_knowledge_graph}")
 
     # Create a mapping of file paths to content items if provided
     content_items_map = {}
@@ -59,11 +88,16 @@ async def process_uploaded_documents(saved_paths, rag: LightRAG, callback_url: O
             t1 = time.perf_counter()
             logger.info(f"[{filename}] Docling conversion: {t1 - t0:.2f}s")
 
-            # --- LightRAG insertion ---
-            t0 = time.perf_counter()
-            await asyncio.to_thread(rag.insert, text, file_paths=[file_path])
-            t1 = time.perf_counter()
-            logger.info(f"[{filename}] LightRAG.insert: {t1 - t0:.2f}s")
+            # --- LightRAG insertion (conditional) ---
+            rag_time = 0
+            if use_knowledge_graph:
+                t0 = time.perf_counter()
+                await asyncio.to_thread(rag.insert, text, file_paths=[file_path])
+                t1 = time.perf_counter()
+                rag_time = t1 - t0
+                logger.info(f"[{filename}] LightRAG.insert: {rag_time:.2f}s")
+            else:
+                logger.info(f"[{filename}] Skipping LightRAG insertion (knowledge graph disabled for topic)")
 
             # --- Save content item to database ---
             if study_topic_id and file_path in content_items_map:
@@ -79,8 +113,9 @@ async def process_uploaded_documents(saved_paths, rag: LightRAG, callback_url: O
                         file_path=file_path,
                         metadata=json.dumps({
                             "file_size": os.path.getsize(file_path),
-                            "processing_time": round(t1 - t0, 2),
-                            "docling_version": "latest"
+                            "processing_time": round(rag_time, 2),
+                            "docling_version": "latest",
+                            "knowledge_graph_enabled": use_knowledge_graph
                         })
                     )
                     logger.info(f"[{filename}] Content item saved to database (ID: {content_item['content_id'][:8]})")
@@ -147,7 +182,9 @@ async def process_image_background(
     filename: str,
     openai_client: OpenAI,
     rag: LightRAG,
-    callback_url: Optional[str]
+    callback_url: Optional[str],
+    study_topic_id: str = None,
+    content_id: str = None
 ):
     shutdown_event = get_shutdown_event()
     if shutdown_event and shutdown_event.is_set():
@@ -163,6 +200,14 @@ async def process_image_background(
         
     start_total = time.perf_counter()
     logger.info(f"[{filename}] Starting image interpretation...")
+
+    # Check if study topic has knowledge graph enabled
+    use_knowledge_graph = True  # Default to true for backward compatibility
+    if study_topic_id:
+        topic = await get_study_topic(study_topic_id)
+        if topic:
+            use_knowledge_graph = topic.get('use_knowledge_graph', True)
+        logger.info(f"[{filename}] Study topic knowledge graph setting: {use_knowledge_graph}")
 
     try:
         ext = os.path.splitext(filename)[1].lower()
@@ -197,11 +242,40 @@ async def process_image_background(
 
         content = resp.choices[0].message.content
 
-        # LightRAG insert
-        t0 = time.perf_counter()
-        await asyncio.to_thread(rag.insert, content, file_paths=[filename])
-        t1 = time.perf_counter()
-        logger.info(f"[{filename}] LightRAG.insert: {t1 - t0:.2f}s")
+        # LightRAG insert (conditional)
+        rag_time = 0
+        if use_knowledge_graph:
+            t0 = time.perf_counter()
+            await asyncio.to_thread(rag.insert, content, file_paths=[filename])
+            t1 = time.perf_counter()
+            rag_time = t1 - t0
+            logger.info(f"[{filename}] LightRAG.insert: {rag_time:.2f}s")
+        else:
+            logger.info(f"[{filename}] Skipping LightRAG insertion (knowledge graph disabled for topic)")
+
+        # --- Save content item to database ---
+        if study_topic_id and content_id:
+            try:
+                await create_content_item(
+                    content_id=content_id,
+                    study_topic_id=study_topic_id,
+                    content_type='image',
+                    title=filename,
+                    content=content,
+                    source_url=None,
+                    file_path=file_path,
+                    metadata=json.dumps({
+                        "image_format": ext[1:],
+                        "file_size": len(img_bytes),
+                        "prompt_used": prompt,
+                        "openai_model": "gpt-4o-mini",
+                        "vision_processing_time": round(rag_time, 2),
+                        "knowledge_graph_enabled": use_knowledge_graph
+                    })
+                )
+                logger.info(f"[{filename}] Content item saved to database (ID: {content_id[:8]})")
+            except Exception as db_error:
+                logger.error(f"[{filename}] Failed to save content item: {db_error}")
 
         # Final log
         total = time.perf_counter() - start_total
@@ -213,7 +287,9 @@ async def process_image_background(
                 "filename": filename,
                 "status": "success",
                 "processing_time_seconds": round(total, 2),
-                "response": content
+                "response": content,
+                "study_topic_id": study_topic_id,
+                "content_id": content_id
             })
 
     except AuthenticationError as e:
@@ -280,6 +356,14 @@ async def process_webpage_background(
     start_total = time.perf_counter()
     logger.info(f"[webpage] Starting ingestion for: {url}")
 
+    # Check if study topic has knowledge graph enabled
+    use_knowledge_graph = True  # Default to true for backward compatibility
+    if study_topic_id:
+        topic = await get_study_topic(study_topic_id)
+        if topic:
+            use_knowledge_graph = topic.get('use_knowledge_graph', True)
+        logger.info(f"[webpage] Study topic knowledge graph setting: {use_knowledge_graph}")
+
     try:
         converter = DocumentConverter()
 
@@ -290,11 +374,16 @@ async def process_webpage_background(
         t1 = time.perf_counter()
         logger.info(f"[webpage] Docling conversion: {t1 - t0:.2f}s")
 
-        # --- LightRAG insertion ---
-        t0 = time.perf_counter()
-        await asyncio.to_thread(rag.insert, text, file_paths=[url])
-        t1 = time.perf_counter()
-        logger.info(f"[webpage] LightRAG.insert: {t1 - t0:.2f}s")
+        # --- LightRAG insertion (conditional) ---
+        rag_time = 0
+        if use_knowledge_graph:
+            t0 = time.perf_counter()
+            await asyncio.to_thread(rag.insert, text, file_paths=[url])
+            t1 = time.perf_counter()
+            rag_time = t1 - t0
+            logger.info(f"[webpage] LightRAG.insert: {rag_time:.2f}s")
+        else:
+            logger.info(f"[webpage] Skipping LightRAG insertion (knowledge graph disabled for topic)")
 
         # --- Save content item to database ---
         if study_topic_id and content_id:
@@ -308,9 +397,10 @@ async def process_webpage_background(
                     source_url=url,
                     file_path=None,
                     metadata=json.dumps({
-                        "processing_time": round(t1 - t0, 2),
+                        "processing_time": round(rag_time, 2),
                         "docling_version": "latest",
-                        "content_length": len(text)
+                        "content_length": len(text),
+                        "knowledge_graph_enabled": use_knowledge_graph
                     })
                 )
                 logger.info(f"[webpage] Content item saved to database (ID: {content_id[:8]})")
@@ -524,6 +614,8 @@ async def process_youtube_background(
     rag: LightRAG,
     task_id: str,
     callback_url: Optional[str] = None,
+    study_topic_id: str = None,
+    content_id: str = None
 ):
     """Process YouTube video transcript and add to LightRAG"""
     shutdown_event = get_shutdown_event()
@@ -542,6 +634,14 @@ async def process_youtube_background(
     
     logger.info(f"📺 [yt-{short_id}] Starting YouTube video processing")
     logger.info(f"🔗 [yt-{short_id}] URL: {url}")
+    
+    # Check if study topic has knowledge graph enabled
+    use_knowledge_graph = True  # Default to true for backward compatibility
+    if study_topic_id:
+        topic = await get_study_topic(study_topic_id)
+        if topic:
+            use_knowledge_graph = topic.get('use_knowledge_graph', True)
+        logger.info(f"📺 [yt-{short_id}] Study topic knowledge graph setting: {use_knowledge_graph}")
     
     start_total = time.perf_counter()
 
@@ -590,12 +690,40 @@ Transcript:
 {transcript_text}
 """
         
-        # Insert into LightRAG
-        await asyncio.to_thread(rag.insert, formatted_content, file_paths=[url])
-        
-        t3 = time.perf_counter()
-        rag_time = t3 - t2
-        logger.info(f"✅ [yt-{short_id}] LightRAG processing completed: {rag_time:.2f}s")
+        # Insert into LightRAG (conditional)
+        rag_time = 0
+        if use_knowledge_graph:
+            await asyncio.to_thread(rag.insert, formatted_content, file_paths=[url])
+            t3 = time.perf_counter()
+            rag_time = t3 - t2
+            logger.info(f"✅ [yt-{short_id}] LightRAG processing completed: {rag_time:.2f}s")
+        else:
+            logger.info(f"📺 [yt-{short_id}] Skipping LightRAG insertion (knowledge graph disabled for topic)")
+
+        # --- Save content item to database ---
+        if study_topic_id and content_id:
+            try:
+                await create_content_item(
+                    content_id=content_id,
+                    study_topic_id=study_topic_id,
+                    content_type='youtube',
+                    title=f"YouTube Video {video_id}",
+                    content=formatted_content,
+                    source_url=url,
+                    file_path=None,
+                    metadata=json.dumps({
+                        "video_id": video_id,
+                        "language": language,
+                        "available_languages": available_languages,
+                        "transcript_length": len(transcript_text),
+                        "extract_time": round(extract_time, 2),
+                        "rag_processing_time": round(rag_time, 2),
+                        "knowledge_graph_enabled": use_knowledge_graph
+                    })
+                )
+                logger.info(f"📺 [yt-{short_id}] Content item saved to database (ID: {content_id[:8]})")
+            except Exception as db_error:
+                logger.error(f"📺 [yt-{short_id}] Failed to save content item: {db_error}")
 
         # Phase 3: Save results and callback
         logger.info(f"📝 [yt-{short_id}] Phase 3: Finalizing results...")
@@ -631,7 +759,9 @@ Transcript:
                 "url": url,
                 "language": language,
                 "transcript_length": len(transcript_text),
-                "processing_time_seconds": round(total, 2)
+                "processing_time_seconds": round(total, 2),
+                "study_topic_id": study_topic_id,
+                "content_id": content_id
             })
             
             t7 = time.perf_counter()

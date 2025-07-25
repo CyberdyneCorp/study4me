@@ -27,7 +27,7 @@ from lightrag.llm.openai import gpt_4o_mini_complete, openai_embed
 from lightrag.kg.shared_storage import initialize_pipeline_status
 
 from openai import OpenAI, AuthenticationError, RateLimitError, APIError
-from utils.utils_async import process_uploaded_documents, process_webpage_background, process_image_background, process_query_background, process_youtube_background
+from utils.utils_async import process_uploaded_documents, process_webpage_background, process_image_background, process_query_background, process_youtube_background, count_tokens
 from utils.db_async import (init_db, fetch_task_result, create_study_topic, get_study_topic, 
                            list_study_topics, update_study_topic, delete_study_topic,
                            create_content_item, get_content_item, list_content_items_by_topic, 
@@ -1036,3 +1036,66 @@ async def delete_study_topic_by_id(topic_id: str):
     except Exception as e:
         logger.error(f"❌ Error deleting study topic {topic_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to delete study topic: {str(e)}")
+
+@app.get("/study-topics/{topic_id}/content", tags=["Study Topics"], response_model=dict)
+async def get_study_topic_content(topic_id: str):
+    """Get all content items for a specific study topic with token count"""
+    try:
+        logger.info(f"📚 Fetching content for study topic: {topic_id}")
+        
+        # Check if topic exists
+        topic = await get_study_topic(topic_id)
+        if not topic:
+            logger.warning(f"❌ Study topic not found: {topic_id}")
+            raise HTTPException(status_code=404, detail=f"Study topic with ID '{topic_id}' not found")
+        
+        # Get all content items for this topic with full content
+        content_items_summary = await list_content_items_by_topic(topic_id)
+        logger.info(f"📄 Found {len(content_items_summary)} content items for topic: {topic['name']}")
+        
+        # Get full content for each item and calculate individual token counts
+        detailed_content_items = []
+        total_token_count = 0
+        total_content_length = 0
+        
+        for item in content_items_summary:
+            # Get the full content item with content field
+            full_item = await get_content_item(item['content_id'])
+            if full_item:
+                content_text = full_item.get('content', '')
+                item_token_count = count_tokens(content_text) if content_text else 0
+                
+                detailed_content_items.append({
+                    "content_id": full_item['content_id'],
+                    "content_type": full_item['content_type'],
+                    "title": full_item['title'],
+                    "content": content_text,
+                    "source_url": full_item.get('source_url'),
+                    "file_path": full_item.get('file_path'),
+                    "metadata": full_item.get('metadata'),
+                    "created_at": full_item['created_at'],
+                    "content_length": len(content_text),
+                    "number_tokens": item_token_count
+                })
+                
+                total_token_count += item_token_count
+                total_content_length += len(content_text)
+        
+        logger.info(f"📊 Total content length: {total_content_length} chars, {total_token_count} tokens")
+        
+        return {
+            "topic_id": topic_id,
+            "topic_name": topic['name'],
+            "topic_description": topic.get('description', ''),
+            "use_knowledge_graph": topic.get('use_knowledge_graph', True),
+            "content_items_count": len(detailed_content_items),
+            "total_content_length": total_content_length,
+            "number_tokens": total_token_count,
+            "content_items": detailed_content_items
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error fetching content for study topic {topic_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch study topic content: {str(e)}")
