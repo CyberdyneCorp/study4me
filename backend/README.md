@@ -66,34 +66,37 @@ Once running, visit:
 
 ## API Endpoints
 
-### Document Processing
-- `POST /documents/upload` - Upload and process documents
-- `GET /datasources` - List all uploaded documents
-- `GET /datasources/{filename}/info` - Get document metadata
-- `GET /datasources/{filename}/download` - Download document
-- `DELETE /datasources/{filename}` - Delete document
+### Debug & Health
+- `GET /` - Basic health check and service status
+- `GET /readyz` - Kubernetes readiness probe endpoint
+
+### Knowledge Upload
+- `POST /documents/upload` - Upload and process documents (PDF, DOCX, XLS, XLSX)
+- `POST /webpage/process` - Process web page content with background processing
+- `POST /youtube/process` - Process YouTube video transcripts and add to knowledge base
+- `POST /image/interpret` - Analyze images with OpenAI Vision API
+
+### Datasource Management
+- `GET /datasources` - List all uploaded documents with metadata
+- `GET /datasources/{filename}/info` - Get detailed document metadata
+- `GET /datasources/{filename}/download` - Download specific document
+- `DELETE /datasources/{filename}` - Delete document from storage
 
 ### YouTube Processing
-- `GET /youtube/transcript` - Get transcript for single video
-- `POST /youtube/batch` - Process multiple videos
-
-### Web Content
-- `POST /webpage/process` - Process web page content
-
-### Image Analysis
-- `POST /image/interpret` - Analyze images with AI
+- `GET /youtube/transcript` - Get transcript for single video with language support
+- `POST /youtube/batch` - Process multiple YouTube videos in batch
 
 ### Knowledge Graph
-- `GET /graph/json` - Get graph as JSON
-- `GET /graph/graphml` - Download GraphML file
-- `GET /graph/png` - Render graph as PNG
+- `GET /graph/json` - Get knowledge graph as JSON with nodes and edges
+- `GET /graph/graphml` - Download GraphML file for external analysis
+- `GET /graph/png` - Render and download knowledge graph as PNG image
 
-### Querying
-- `GET /query` - Synchronous queries
-- `POST /query-async` - Asynchronous queries with callback support
+### AI Querying
+- `GET /query` - Synchronous queries with multiple modes (naive, local, global, hybrid)
+- `POST /query-async` - Asynchronous queries with background processing and callback support
 
 ### Task Management
-- `GET /task-status/{task_id}` - Check background task status
+- `GET /task-status/{task_id}` - Check background task status and retrieve results
 
 ## Architecture
 
@@ -114,12 +117,14 @@ backend/
 
 ### Background Processing
 
-The application uses FastAPI's `BackgroundTasks` for processing:
+The application uses FastAPI's `BackgroundTasks` for processing with graceful shutdown:
 
 1. **File Upload**: Documents are saved immediately, processed in background
 2. **Task Tracking**: Each background task gets a unique ID for status tracking
 3. **Status Updates**: Tasks update status in SQLite database
 4. **Callbacks**: Optional webhook callbacks for task completion
+5. **Graceful Shutdown**: Background tasks are properly cancelled on server shutdown
+6. **Error Handling**: Comprehensive OpenAI API error handling with structured responses
 
 ### LightRAG Integration
 
@@ -191,19 +196,39 @@ Set these in production:
 
 ### Common Issues
 
-1. **OpenAI API Key Error**: Ensure `OPENAI_API_KEY` is set in environment
+1. **OpenAI API Key Error**: 
+   - Server fails gracefully at startup with clear error messages
+   - Ensure `OPENAI_API_KEY` is set in environment or .env file
+   - Replace placeholder values with actual API key
 2. **File Upload Errors**: Check file permissions and disk space
 3. **YouTube Errors**: yt-dlp may need updates for new YouTube changes
 4. **Memory Issues**: Large documents may require chunking strategies
+5. **Shutdown Issues**: 
+   - Server now handles Ctrl+C gracefully with 5-second timeout
+   - Background tasks are properly cancelled on shutdown
 
 ### Debugging
 
-Enable debug logging by setting `LOG_LEVEL=debug` in your environment.
+The application includes comprehensive logging for debugging and performance monitoring:
 
-Check logs for detailed processing information:
+1. **Startup/Shutdown Logging**: Clear messages for server lifecycle events
+2. **Task Processing**: Detailed logs with unique IDs for each background task
+3. **Performance Metrics**: Processing times for each phase of operations
+4. **Error Details**: Structured error information with context
+5. **OpenAI API Monitoring**: Request/response logging with rate limit handling
+
+Enable debug logging:
 ```bash
 uvicorn main:app --reload --log-level debug
 ```
+
+Log patterns to watch for:
+- `🚀` Server startup events
+- `📺` YouTube processing
+- `🧠` LightRAG operations
+- `📡` Callback notifications
+- `❌` Error conditions
+- `✅` Successful completions
 
 ## Contributing
 
