@@ -65,6 +65,16 @@ const initialState: TopicState = {
 export const topicStore = writable<TopicState>(initialState)
 
 /**
+ * Helper function to format dates to YYYY-MM-DD format
+ * @param dateString - ISO date string or any valid date string
+ * @returns Formatted date string in YYYY-MM-DD format
+ */
+function formatDateToYMD(dateString: string): string {
+  const date = new Date(dateString)
+  return date.toISOString().split('T')[0]
+}
+
+/**
  * Helper function to convert backend StudyTopic to frontend Topic format
  * @param studyTopic - Backend StudyTopic object
  * @returns Frontend Topic object
@@ -75,8 +85,8 @@ function convertStudyTopicToTopic(studyTopic: StudyTopic): Topic {
     title: studyTopic.name,
     description: studyTopic.description,
     status: 'completed', // Default status for topics from backend
-    createdAt: studyTopic.created_at,
-    updatedAt: studyTopic.updated_at,
+    createdAt: formatDateToYMD(studyTopic.created_at),
+    updatedAt: formatDateToYMD(studyTopic.updated_at),
     use_knowledge_graph: studyTopic.use_knowledge_graph,
     sources: [] // Initialize empty sources array
   }
@@ -203,13 +213,14 @@ export const topicActions = {
       const response = await apiService.createStudyTopic(request)
       
       // Create frontend topic object from backend response
+      const now = formatDateToYMD(new Date().toISOString())
       const newTopic: Topic = {
         id: response.topic_id,
         title: response.name,
         description: response.description,
         status: 'completed', // Topics created successfully are marked as completed
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
         use_knowledge_graph: response.use_knowledge_graph,
         sources: []
       }

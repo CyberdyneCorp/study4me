@@ -168,6 +168,16 @@
   }
   
   /**
+   * Helper function to format dates to YYYY-MM-DD format
+   * @param dateString - ISO date string or any valid date string
+   * @returns Formatted date string in YYYY-MM-DD format
+   */
+  function formatDateToYMD(dateString: string): string {
+    const date = new Date(dateString)
+    return date.toISOString().split('T')[0]
+  }
+
+  /**
    * Creates a new topic from the modal form data
    * @param event - Custom event containing form data (topic_id, name, description, use_knowledge_graph)
    */
@@ -176,13 +186,14 @@
     
     try {
       // The modal has already created the topic via API, so we just need to add it to the store
+      const now = formatDateToYMD(new Date().toISOString())
       const newTopic = {
         id: topic_id,
         title: name,
         description: description,
         status: 'completed' as const,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
         use_knowledge_graph: use_knowledge_graph,
         sources: []
       }
