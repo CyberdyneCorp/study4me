@@ -28,7 +28,10 @@ from lightrag.kg.shared_storage import initialize_pipeline_status
 
 from openai import OpenAI, AuthenticationError, RateLimitError, APIError
 from utils.utils_async import process_uploaded_documents, process_webpage_background, process_image_background, process_query_background, process_youtube_background
-from utils.db_async import init_db, fetch_task_result, create_study_topic, get_study_topic, list_study_topics, update_study_topic, delete_study_topic
+from utils.db_async import (init_db, fetch_task_result, create_study_topic, get_study_topic, 
+                           list_study_topics, update_study_topic, delete_study_topic,
+                           create_content_item, get_content_item, list_content_items_by_topic, 
+                           get_content_items_count_by_topic, delete_content_item)
 from youtube_service import get_youtube_transcript, batch_youtube_transcripts, BatchRequest
 
 # Handle multiple tasks statuses
@@ -301,18 +304,45 @@ def readiness():
 async def upload_documents(
     background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...),
+    study_topic_id: str = Form(..., description="UUID of the study topic this content belongs to"),
     callback_url: Optional[str] = Form(None),
     rag: LightRAG = Depends(get_rag),
 ):
+    # Log upload initiation
+    logger.info(f"📁 [upload] Starting document upload for study topic: {study_topic_id[:8]}")
+    logger.info(f"📄 [upload] Number of files: {len(files)}")
+    
+    # Validate study topic exists
+    study_topic = await get_study_topic(study_topic_id)
+    if not study_topic:
+        logger.warning(f"❌ [upload] Study topic not found: {study_topic_id}")
+        raise HTTPException(status_code=404, detail=f"Study topic with ID '{study_topic_id}' not found")
+    
+    logger.info(f"✅ [upload] Study topic validated: '{study_topic['name']}'")
+    
     saved_paths = []
+    content_items = []
+    
     for file in files:
         ext = os.path.splitext(file.filename)[1].lower()
         if ext not in {".pdf", ".docx", ".xls", ".xlsx"}:
             raise HTTPException(status_code=400, detail=f"File type {ext} not supported.")
+        
+        # Save file
         file_path = os.path.join(UPLOAD_DIR, file.filename)
         with open(file_path, "wb") as f:
             shutil.copyfileobj(file.file, f)
         saved_paths.append((file.filename, file_path))
+        
+        # Create content item record (content will be populated after processing)
+        content_id = str(uuid.uuid4())
+        content_items.append({
+            "content_id": content_id,
+            "filename": file.filename,
+            "file_path": file_path
+        })
+        
+        logger.info(f"📄 [upload] File saved: {file.filename} (ID: {content_id[:8]})")
 
     # Run in background
     task_id = str(uuid.uuid4())
@@ -321,13 +351,15 @@ async def upload_documents(
     
     async def process_with_tracking():
         try:
-            await process_uploaded_documents(saved_paths, rag, callback_url)
+            logger.info(f"⚙️ [upload-{task_id[:8]}] Starting document processing...")
+            await process_uploaded_documents(saved_paths, rag, callback_url, study_topic_id, content_items)
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "done"
+            logger.info(f"✅ [upload-{task_id[:8]}] Document processing completed successfully")
         except Exception as e:
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "failed"
-            logger.error(f"[{task_id}] Background task failed: {e}")
+            logger.error(f"💥 [upload-{task_id[:8]}] Background task failed: {e}")
     
     # Create and track the background task
     task = asyncio.create_task(process_with_tracking())
@@ -339,7 +371,14 @@ async def upload_documents(
     
     task.add_done_callback(cleanup_task)
 
-    return {"status": "processing", "files": [name for name, _ in saved_paths], "task_id": task_id}
+    logger.info(f"📤 [upload] Upload queued successfully - Task ID: {task_id}")
+    return {
+        "status": "processing", 
+        "files": [name for name, _ in saved_paths], 
+        "task_id": task_id,
+        "study_topic_id": study_topic_id,
+        "study_topic_name": study_topic['name']
+    }
 
 @app.get("/datasources", tags=["Datasource Management"])
 async def list_datasources():
@@ -455,9 +494,26 @@ async def delete_datasource(filename: str):
 async def process_webpage(
     background_tasks: BackgroundTasks,
     url: str = Body(..., embed=True),
+    study_topic_id: str = Body(..., description="UUID of the study topic this content belongs to", embed=True),
     callback_url: Optional[str] = Body(None, embed=True),
     rag: LightRAG = Depends(get_rag),
 ):
+    # Log webpage processing initiation
+    logger.info(f"🌐 [webpage] Starting webpage processing for study topic: {study_topic_id[:8]}")
+    logger.info(f"🔗 [webpage] URL: {url}")
+    
+    # Validate study topic exists
+    study_topic = await get_study_topic(study_topic_id)
+    if not study_topic:
+        logger.warning(f"❌ [webpage] Study topic not found: {study_topic_id}")
+        raise HTTPException(status_code=404, detail=f"Study topic with ID '{study_topic_id}' not found")
+    
+    logger.info(f"✅ [webpage] Study topic validated: '{study_topic['name']}'")
+    
+    # Create content item record
+    content_id = str(uuid.uuid4())
+    logger.info(f"🌐 [webpage] Content item created (ID: {content_id[:8]})")
+    
     # Run in background
     task_id = str(uuid.uuid4())
     with TASK_LOCK:
@@ -465,13 +521,15 @@ async def process_webpage(
     
     async def process_with_tracking():
         try:
-            await process_webpage_background(url, rag, callback_url)
+            logger.info(f"⚙️ [webpage-{task_id[:8]}] Starting background processing...")
+            await process_webpage_background(url, rag, callback_url, study_topic_id, content_id)
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "done"
+            logger.info(f"✅ [webpage-{task_id[:8]}] Background processing completed successfully")
         except Exception as e:
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "failed"
-            logger.error(f"[{task_id}] Background task failed: {e}")
+            logger.error(f"💥 [webpage-{task_id[:8]}] Background task failed: {e}")
     
     # Create and track the background task
     task = asyncio.create_task(process_with_tracking())
@@ -483,23 +541,42 @@ async def process_webpage(
     
     task.add_done_callback(cleanup_task)
     
-    return {"status": "processing", "url": url, "task_id": task_id}
+    logger.info(f"📤 [webpage] Webpage processing queued successfully - Task ID: {task_id}")
+    return {
+        "status": "processing", 
+        "url": url, 
+        "task_id": task_id,
+        "study_topic_id": study_topic_id,
+        "study_topic_name": study_topic['name'],
+        "content_id": content_id
+    }
 
 @app.post("/youtube/process", tags=["Knowledge Upload"])
 async def process_youtube_video(
     background_tasks: BackgroundTasks,
-    url: str = Body(..., embed=True),
-    callback_url: Optional[str] = Body(None, embed=True),
+    url: str = Form(...),
+    study_topic_id: str = Form(..., description="UUID of the study topic this content belongs to"),
+    callback_url: Optional[str] = Form(None),
     rag: LightRAG = Depends(get_rag),
 ):
     """Process YouTube video transcript and add to LightRAG knowledge base"""
-    task_id = str(uuid.uuid4())
-    
     # Log YouTube processing initiation
-    logger.info(f"📺 [youtube-{task_id[:8]}] Initiating YouTube video processing")
-    logger.info(f"🔗 [youtube-{task_id[:8]}] URL: {url}")
-    logger.info(f"📞 [youtube-{task_id[:8]}] Callback URL: {'Yes' if callback_url else 'No'}")
+    logger.info(f"📺 [youtube] Starting YouTube processing for study topic: {study_topic_id[:8]}")
+    logger.info(f"🔗 [youtube] URL: {url}")
     
+    # Validate study topic exists
+    study_topic = await get_study_topic(study_topic_id)
+    if not study_topic:
+        logger.warning(f"❌ [youtube] Study topic not found: {study_topic_id}")
+        raise HTTPException(status_code=404, detail=f"Study topic with ID '{study_topic_id}' not found")
+    
+    logger.info(f"✅ [youtube] Study topic validated: '{study_topic['name']}'")
+    
+    # Create content item record
+    content_id = str(uuid.uuid4())
+    logger.info(f"📺 [youtube] Content item created (ID: {content_id[:8]})")
+    
+    task_id = str(uuid.uuid4())
     with TASK_LOCK:
         TASK_STATUS[task_id] = "processing"
 
@@ -508,7 +585,7 @@ async def process_youtube_video(
             logger.info(f"⚙️ [youtube-{task_id[:8]}] Starting background processing...")
             start_bg = time.perf_counter()
             
-            await process_youtube_background(url, rag, task_id, callback_url)
+            await process_youtube_background(url, rag, task_id, callback_url, study_topic_id, content_id)
             
             total_bg = time.perf_counter() - start_bg
             logger.info(f"✅ [youtube-{task_id[:8]}] Background processing completed in {total_bg:.2f}s")
@@ -538,6 +615,9 @@ async def process_youtube_video(
         "status": "processing", 
         "task_id": task_id, 
         "url": url,
+        "study_topic_id": study_topic_id,
+        "study_topic_name": study_topic['name'],
+        "content_id": content_id,
         "message": "YouTube video processing started. Transcript will be extracted and added to knowledge base."
     }
 
@@ -722,11 +802,28 @@ async def download_graph_png():
 async def interpret_image(
     background_tasks: BackgroundTasks,
     image: UploadFile = File(...),
+    study_topic_id: str = Form(..., description="UUID of the study topic this content belongs to"),
     prompt: Optional[str] = Body("Describe this image and extract key information", embed=True),
     callback_url: Optional[str] = Form(None),
     openai_client: OpenAI = Depends(get_openai_client),
     rag: LightRAG = Depends(get_rag)
 ):
+    # Log image processing initiation
+    logger.info(f"🖼️ [image] Starting image processing for study topic: {study_topic_id[:8]}")
+    logger.info(f"📄 [image] Filename: {image.filename}")
+    
+    # Validate study topic exists
+    study_topic = await get_study_topic(study_topic_id)
+    if not study_topic:
+        logger.warning(f"❌ [image] Study topic not found: {study_topic_id}")
+        raise HTTPException(status_code=404, detail=f"Study topic with ID '{study_topic_id}' not found")
+    
+    logger.info(f"✅ [image] Study topic validated: '{study_topic['name']}'")
+    
+    # Create content item record
+    content_id = str(uuid.uuid4())
+    logger.info(f"🖼️ [image] Content item created (ID: {content_id[:8]})")
+    
     # Save file for later processing
     file_path = os.path.join(UPLOAD_DIR, image.filename)
     with open(file_path, "wb") as f:
@@ -739,7 +836,7 @@ async def interpret_image(
     
     async def process_with_tracking():
         try:
-            await process_image_background(file_path, prompt, image.filename, openai_client, rag, callback_url)
+            await process_image_background(file_path, prompt, image.filename, openai_client, rag, callback_url, study_topic_id, content_id)
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "done"
         except Exception as e:
@@ -757,7 +854,15 @@ async def interpret_image(
     
     task.add_done_callback(cleanup_task)
 
-    return {"status": "processing", "filename": image.filename, "task_id": task_id}
+    logger.info(f"📤 [image] Image processing queued successfully - Task ID: {task_id}")
+    return {
+        "status": "processing", 
+        "filename": image.filename, 
+        "task_id": task_id,
+        "study_topic_id": study_topic_id,
+        "study_topic_name": study_topic['name'],
+        "content_id": content_id
+    }
     
 @app.get("/task-status/{task_id}", tags=["Tasks"])
 async def get_task_status_combined(task_id: str):

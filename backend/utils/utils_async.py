@@ -9,7 +9,7 @@ from lightrag import LightRAG, QueryParam
 from docling.document_converter import DocumentConverter
 from .utils_ws import notify_callback
 import logging
-from .db_async import save_task_result
+from .db_async import save_task_result, create_content_item
 import json
 
 logger = logging.getLogger(__name__)
@@ -25,9 +25,16 @@ def get_shutdown_event():
         pass
     return None
 
-async def process_uploaded_documents(saved_paths, rag: LightRAG, callback_url: Optional[str]):
+async def process_uploaded_documents(saved_paths, rag: LightRAG, callback_url: Optional[str], 
+                                   study_topic_id: str = None, content_items: list = None):
     shutdown_event = get_shutdown_event()
     converter = DocumentConverter()
+
+    # Create a mapping of file paths to content items if provided
+    content_items_map = {}
+    if content_items:
+        for item in content_items:
+            content_items_map[item['file_path']] = item
 
     for filename, file_path in saved_paths:
         # Check for shutdown signal or cancellation
@@ -58,6 +65,28 @@ async def process_uploaded_documents(saved_paths, rag: LightRAG, callback_url: O
             t1 = time.perf_counter()
             logger.info(f"[{filename}] LightRAG.insert: {t1 - t0:.2f}s")
 
+            # --- Save content item to database ---
+            if study_topic_id and file_path in content_items_map:
+                content_item = content_items_map[file_path]
+                try:
+                    await create_content_item(
+                        content_id=content_item['content_id'],
+                        study_topic_id=study_topic_id,
+                        content_type='document',
+                        title=filename,
+                        content=text,
+                        source_url=None,
+                        file_path=file_path,
+                        metadata=json.dumps({
+                            "file_size": os.path.getsize(file_path),
+                            "processing_time": round(t1 - t0, 2),
+                            "docling_version": "latest"
+                        })
+                    )
+                    logger.info(f"[{filename}] Content item saved to database (ID: {content_item['content_id'][:8]})")
+                except Exception as db_error:
+                    logger.error(f"[{filename}] Failed to save content item: {db_error}")
+
             total = time.perf_counter() - start_total
             logger.info(f"[{filename}] Total processing time: {total:.2f}s")
 
@@ -65,7 +94,9 @@ async def process_uploaded_documents(saved_paths, rag: LightRAG, callback_url: O
                 await notify_callback(callback_url, {
                     "filename": filename,
                     "status": "success",
-                    "processing_time_seconds": round(total, 2)
+                    "processing_time_seconds": round(total, 2),
+                    "study_topic_id": study_topic_id,
+                    "content_id": content_items_map[file_path]['content_id'] if file_path in content_items_map else None
                 })
 
         except AuthenticationError as e:
@@ -230,7 +261,9 @@ async def process_image_background(
 async def process_webpage_background(
     url: str,
     rag: LightRAG,
-    callback_url: Optional[str]
+    callback_url: Optional[str],
+    study_topic_id: str = None,
+    content_id: str = None
 ):
     shutdown_event = get_shutdown_event()
     if shutdown_event and shutdown_event.is_set():
@@ -263,6 +296,27 @@ async def process_webpage_background(
         t1 = time.perf_counter()
         logger.info(f"[webpage] LightRAG.insert: {t1 - t0:.2f}s")
 
+        # --- Save content item to database ---
+        if study_topic_id and content_id:
+            try:
+                await create_content_item(
+                    content_id=content_id,
+                    study_topic_id=study_topic_id,
+                    content_type='webpage',
+                    title=url,
+                    content=text,
+                    source_url=url,
+                    file_path=None,
+                    metadata=json.dumps({
+                        "processing_time": round(t1 - t0, 2),
+                        "docling_version": "latest",
+                        "content_length": len(text)
+                    })
+                )
+                logger.info(f"[webpage] Content item saved to database (ID: {content_id[:8]})")
+            except Exception as db_error:
+                logger.error(f"[webpage] Failed to save content item: {db_error}")
+
         total = time.perf_counter() - start_total
         logger.info(f"[webpage] Total process time: {total:.2f}s")
 
@@ -271,7 +325,9 @@ async def process_webpage_background(
             await notify_callback(callback_url, {
                 "url": url,
                 "status": "success",
-                "processing_time_seconds": round(total, 2)
+                "processing_time_seconds": round(total, 2),
+                "study_topic_id": study_topic_id,
+                "content_id": content_id
             })
 
     except AuthenticationError as e:

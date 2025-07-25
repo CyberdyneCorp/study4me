@@ -27,6 +27,29 @@ async def init_db():
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """)
+        
+        # Content items table for storing text/transcript content
+        await db.execute("""
+        CREATE TABLE IF NOT EXISTS content_items (
+            content_id TEXT PRIMARY KEY,
+            study_topic_id TEXT NOT NULL,
+            content_type TEXT NOT NULL CHECK (content_type IN ('document', 'webpage', 'youtube', 'image', 'text')),
+            title TEXT,
+            content TEXT NOT NULL,
+            source_url TEXT,
+            file_path TEXT,
+            metadata TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (study_topic_id) REFERENCES study_topics (topic_id) ON DELETE CASCADE
+        )
+        """)
+        
+        # Create index on study_topic_id for faster queries
+        await db.execute("""
+        CREATE INDEX IF NOT EXISTS idx_content_items_study_topic_id 
+        ON content_items (study_topic_id)
+        """)
+        
         await db.commit()
 
 async def save_task_result(task_id: str, status: str, result: str, processing_time: float):
@@ -125,8 +148,85 @@ async def update_study_topic(topic_id: str, name: str = None, description: str =
         return False
 
 async def delete_study_topic(topic_id: str):
-    """Delete a study topic"""
+    """Delete a study topic and its associated content items"""
     async with aiosqlite.connect(DB_PATH) as db:
+        # Delete associated content items first (will cascade automatically due to foreign key)
         cursor = await db.execute("DELETE FROM study_topics WHERE topic_id = ?", (topic_id,))
+        await db.commit()
+        return cursor.rowcount > 0
+
+# === Content Items Functions ===
+
+async def create_content_item(content_id: str, study_topic_id: str, content_type: str, 
+                            title: str, content: str, source_url: str = None, 
+                            file_path: str = None, metadata: str = None):
+    """Create a new content item associated with a study topic"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+        INSERT INTO content_items (content_id, study_topic_id, content_type, title, content, source_url, file_path, metadata)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (content_id, study_topic_id, content_type, title, content, source_url, file_path, metadata))
+        await db.commit()
+
+async def get_content_item(content_id: str):
+    """Get a content item by ID"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("""
+        SELECT content_id, study_topic_id, content_type, title, content, source_url, file_path, metadata, created_at 
+        FROM content_items WHERE content_id = ?
+        """, (content_id,)) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return {
+                    "content_id": row[0],
+                    "study_topic_id": row[1],
+                    "content_type": row[2],
+                    "title": row[3],
+                    "content": row[4],
+                    "source_url": row[5],
+                    "file_path": row[6],
+                    "metadata": row[7],
+                    "created_at": row[8]
+                }
+            return None
+
+async def list_content_items_by_topic(study_topic_id: str, limit: int = 100, offset: int = 0):
+    """List all content items for a specific study topic"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("""
+        SELECT content_id, study_topic_id, content_type, title, source_url, file_path, metadata, created_at 
+        FROM content_items 
+        WHERE study_topic_id = ?
+        ORDER BY created_at DESC 
+        LIMIT ? OFFSET ?
+        """, (study_topic_id, limit, offset)) as cursor:
+            rows = await cursor.fetchall()
+            content_items = []
+            for row in rows:
+                content_items.append({
+                    "content_id": row[0],
+                    "study_topic_id": row[1],
+                    "content_type": row[2],
+                    "title": row[3],
+                    "source_url": row[4],
+                    "file_path": row[5],
+                    "metadata": row[6],
+                    "created_at": row[7]
+                })
+            return content_items
+
+async def get_content_items_count_by_topic(study_topic_id: str):
+    """Get the count of content items for a specific study topic"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("""
+        SELECT COUNT(*) FROM content_items WHERE study_topic_id = ?
+        """, (study_topic_id,)) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else 0
+
+async def delete_content_item(content_id: str):
+    """Delete a content item"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("DELETE FROM content_items WHERE content_id = ?", (content_id,))
         await db.commit()
         return cursor.rowcount > 0
