@@ -3,8 +3,10 @@ fastapi==0.115.6
 uvicorn[standard]==0.32.1
 python-multipart==0.0.19
 
-# CORS middleware
-# (included in fastapi)
+# Pydantic - compatible with docling (tested working versions)
+pydantic>=2.11.7
+pydantic-core>=2.33.2
+pydantic-settings>=2.7.0
 
 # Environment and configuration
 python-dotenv==1.0.1
@@ -13,8 +15,8 @@ python-dotenv==1.0.1
 openai==1.58.1
 lightrag==0.0.5
 
-# Document processing
-docling==2.8.1
+# Document processing (use the version already installed)
+docling>=2.34.0,<3.0.0
 
 # YouTube transcript processing
 yt-dlp==2024.12.13
