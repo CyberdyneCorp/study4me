@@ -98,6 +98,13 @@ Once running, visit:
 ### Task Management
 - `GET /task-status/{task_id}` - Check background task status and retrieve results
 
+### Study Topics Management
+- `POST /study-topics` - Create a new study topic with UUID (name, description, use_knowledge_graph)
+- `GET /study-topics` - List all study topics with pagination support
+- `GET /study-topics/{topic_id}` - Get specific study topic by UUID
+- `PUT /study-topics/{topic_id}` - Update existing study topic
+- `DELETE /study-topics/{topic_id}` - Delete study topic by UUID
+
 ## Architecture
 
 ### Directory Structure

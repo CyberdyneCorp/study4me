@@ -12,6 +12,8 @@ from typing import List, Optional, Dict, Any
 from contextlib import asynccontextmanager
 from threading import Lock
 
+from pydantic import BaseModel, Field
+
 from dotenv import load_dotenv
 
 import networkx as nx
@@ -26,7 +28,7 @@ from lightrag.kg.shared_storage import initialize_pipeline_status
 
 from openai import OpenAI, AuthenticationError, RateLimitError, APIError
 from utils.utils_async import process_uploaded_documents, process_webpage_background, process_image_background, process_query_background, process_youtube_background
-from utils.db_async import init_db, fetch_task_result
+from utils.db_async import init_db, fetch_task_result, create_study_topic, get_study_topic, list_study_topics, update_study_topic, delete_study_topic
 from youtube_service import get_youtube_transcript, batch_youtube_transcripts, BatchRequest
 
 # Handle multiple tasks statuses
@@ -53,6 +55,25 @@ os.makedirs(RAG_DIR, exist_ok=True)
 # === Logging ===
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s')
 logger = logging.getLogger("ingest_kgraph")
+
+# === Pydantic Models ===
+class StudyTopicCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200, description="Name of the study topic")
+    description: Optional[str] = Field(None, max_length=1000, description="Description of the study topic")
+    use_knowledge_graph: bool = Field(True, description="Whether to use knowledge graph for this topic")
+
+class StudyTopicResponse(BaseModel):
+    topic_id: str
+    name: str
+    description: Optional[str]
+    use_knowledge_graph: bool
+    created_at: str
+    updated_at: str
+
+class StudyTopicUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=200, description="Name of the study topic")
+    description: Optional[str] = Field(None, max_length=1000, description="Description of the study topic")
+    use_knowledge_graph: Optional[bool] = Field(None, description="Whether to use knowledge graph for this topic")
 
 # === OpenAI Key Check (Moved to lifespan for graceful failure) ===
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -755,3 +776,158 @@ async def get_task_status_combined(task_id: str):
         "result": result["result"] if result and status == "done" else None,
         "processing_time_seconds": result["processing_time"] if result and status == "done" else None
     }
+
+# === Study Topics Management ===
+
+@app.post("/study-topics", tags=["Study Topics"], response_model=dict)
+async def create_new_study_topic(topic: StudyTopicCreate):
+    """Create a new study topic and return its UUID"""
+    try:
+        # Generate UUID for the topic
+        topic_id = str(uuid.uuid4())
+        
+        # Log topic creation
+        logger.info(f"📚 Creating new study topic: '{topic.name}' (ID: {topic_id[:8]})")
+        logger.info(f"📝 Description: {topic.description[:100] + '...' if topic.description and len(topic.description) > 100 else topic.description or 'None'}")
+        logger.info(f"🧠 Knowledge graph enabled: {topic.use_knowledge_graph}")
+        
+        # Save to database
+        await create_study_topic(
+            topic_id=topic_id,
+            name=topic.name,
+            description=topic.description,
+            use_knowledge_graph=topic.use_knowledge_graph
+        )
+        
+        logger.info(f"✅ Study topic created successfully: {topic_id}")
+        
+        return {
+            "message": "Study topic created successfully",
+            "topic_id": topic_id,
+            "name": topic.name,
+            "description": topic.description,
+            "use_knowledge_graph": topic.use_knowledge_graph
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Error creating study topic: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create study topic: {str(e)}")
+
+@app.get("/study-topics", tags=["Study Topics"], response_model=dict)
+async def get_study_topics(
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of topics to return"),
+    offset: int = Query(0, ge=0, description="Number of topics to skip")
+):
+    """List all study topics with pagination"""
+    try:
+        logger.info(f"📚 Fetching study topics (limit: {limit}, offset: {offset})")
+        
+        topics = await list_study_topics(limit=limit, offset=offset)
+        
+        logger.info(f"✅ Retrieved {len(topics)} study topics")
+        
+        return {
+            "total_retrieved": len(topics),
+            "limit": limit,
+            "offset": offset,
+            "topics": topics
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Error fetching study topics: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch study topics: {str(e)}")
+
+@app.get("/study-topics/{topic_id}", tags=["Study Topics"], response_model=StudyTopicResponse)
+async def get_study_topic_by_id(topic_id: str):
+    """Get a specific study topic by its UUID"""
+    try:
+        logger.info(f"📚 Fetching study topic: {topic_id}")
+        
+        topic = await get_study_topic(topic_id)
+        
+        if not topic:
+            logger.warning(f"❌ Study topic not found: {topic_id}")
+            raise HTTPException(status_code=404, detail=f"Study topic with ID '{topic_id}' not found")
+        
+        logger.info(f"✅ Retrieved study topic: {topic['name']}")
+        
+        return topic
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error fetching study topic {topic_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch study topic: {str(e)}")
+
+@app.put("/study-topics/{topic_id}", tags=["Study Topics"], response_model=dict)
+async def update_study_topic_by_id(topic_id: str, topic_update: StudyTopicUpdate):
+    """Update an existing study topic"""
+    try:
+        logger.info(f"📚 Updating study topic: {topic_id}")
+        
+        # Check if topic exists
+        existing_topic = await get_study_topic(topic_id)
+        if not existing_topic:
+            logger.warning(f"❌ Study topic not found for update: {topic_id}")
+            raise HTTPException(status_code=404, detail=f"Study topic with ID '{topic_id}' not found")
+        
+        # Update the topic
+        updated = await update_study_topic(
+            topic_id=topic_id,
+            name=topic_update.name,
+            description=topic_update.description,
+            use_knowledge_graph=topic_update.use_knowledge_graph
+        )
+        
+        if not updated:
+            logger.warning(f"⚠️ No changes made to study topic: {topic_id}")
+            return {"message": "No changes made to study topic", "topic_id": topic_id}
+        
+        # Fetch updated topic
+        updated_topic = await get_study_topic(topic_id)
+        
+        logger.info(f"✅ Study topic updated successfully: {topic_id}")
+        
+        return {
+            "message": "Study topic updated successfully",
+            "topic": updated_topic
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error updating study topic {topic_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update study topic: {str(e)}")
+
+@app.delete("/study-topics/{topic_id}", tags=["Study Topics"], response_model=dict)
+async def delete_study_topic_by_id(topic_id: str):
+    """Delete a study topic"""
+    try:
+        logger.info(f"📚 Deleting study topic: {topic_id}")
+        
+        # Check if topic exists
+        existing_topic = await get_study_topic(topic_id)
+        if not existing_topic:
+            logger.warning(f"❌ Study topic not found for deletion: {topic_id}")
+            raise HTTPException(status_code=404, detail=f"Study topic with ID '{topic_id}' not found")
+        
+        # Delete the topic
+        deleted = await delete_study_topic(topic_id)
+        
+        if not deleted:
+            logger.error(f"❌ Failed to delete study topic: {topic_id}")
+            raise HTTPException(status_code=500, detail="Failed to delete study topic")
+        
+        logger.info(f"✅ Study topic deleted successfully: {existing_topic['name']} ({topic_id})")
+        
+        return {
+            "message": "Study topic deleted successfully",
+            "topic_id": topic_id,
+            "name": existing_topic["name"]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error deleting study topic {topic_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete study topic: {str(e)}")
