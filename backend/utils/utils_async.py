@@ -4,6 +4,7 @@ import os
 import base64
 from typing import Optional
 from openai import OpenAI
+from openai import AuthenticationError, RateLimitError, APIError
 from lightrag import LightRAG, QueryParam
 from docling.document_converter import DocumentConverter
 from .utils_ws import notify_callback
@@ -44,13 +45,46 @@ async def process_uploaded_documents(saved_paths, rag: LightRAG, callback_url: O
                     "processing_time_seconds": round(total, 2)
                 })
 
-        except Exception as e:
-            logger.error(f"[{filename}] Error: {e}")
+        except AuthenticationError as e:
+            error_msg = f"OpenAI authentication failed: {str(e)}"
+            logger.error(f"[{filename}] {error_msg}")
+            logger.error("Please check your OPENAI_API_KEY environment variable.")
             if callback_url:
                 await notify_callback(callback_url, {
                     "filename": filename,
                     "status": "error",
-                    "error": str(e)
+                    "error": error_msg,
+                    "error_type": "authentication"
+                })
+        except RateLimitError as e:
+            error_msg = f"OpenAI rate limit exceeded: {str(e)}"
+            logger.warning(f"[{filename}] {error_msg}")
+            if callback_url:
+                await notify_callback(callback_url, {
+                    "filename": filename,
+                    "status": "error",
+                    "error": error_msg,
+                    "error_type": "rate_limit"
+                })
+        except APIError as e:
+            error_msg = f"OpenAI API error: {str(e)}"
+            logger.error(f"[{filename}] {error_msg}")
+            if callback_url:
+                await notify_callback(callback_url, {
+                    "filename": filename,
+                    "status": "error",
+                    "error": error_msg,
+                    "error_type": "api_error"
+                })
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"[{filename}] Unexpected error: {error_msg}")
+            if callback_url:
+                await notify_callback(callback_url, {
+                    "filename": filename,
+                    "status": "error",
+                    "error": error_msg,
+                    "error_type": "unexpected"
                 })
                 
 async def process_image_background(
@@ -116,13 +150,46 @@ async def process_image_background(
                 "response": content
             })
 
-    except Exception as e:
-        logger.error(f"[{filename}] Error: {e}")
+    except AuthenticationError as e:
+        error_msg = f"OpenAI authentication failed: {str(e)}"
+        logger.error(f"[{filename}] {error_msg}")
+        logger.error("Please check your OPENAI_API_KEY environment variable.")
         if callback_url:
             await notify_callback(callback_url, {
                 "filename": filename,
                 "status": "error",
-                "error": str(e)
+                "error": error_msg,
+                "error_type": "authentication"
+            })
+    except RateLimitError as e:
+        error_msg = f"OpenAI rate limit exceeded: {str(e)}"
+        logger.warning(f"[{filename}] {error_msg}")
+        if callback_url:
+            await notify_callback(callback_url, {
+                "filename": filename,
+                "status": "error",
+                "error": error_msg,
+                "error_type": "rate_limit"
+            })
+    except APIError as e:
+        error_msg = f"OpenAI API error: {str(e)}"
+        logger.error(f"[{filename}] {error_msg}")
+        if callback_url:
+            await notify_callback(callback_url, {
+                "filename": filename,
+                "status": "error",
+                "error": error_msg,
+                "error_type": "api_error"
+            })
+    except Exception as e:
+        error_msg = str(e)
+        logger.error(f"[{filename}] Unexpected error: {error_msg}")
+        if callback_url:
+            await notify_callback(callback_url, {
+                "filename": filename,
+                "status": "error",
+                "error": error_msg,
+                "error_type": "unexpected"
             })
             
 async def process_webpage_background(
@@ -160,13 +227,46 @@ async def process_webpage_background(
                 "processing_time_seconds": round(total, 2)
             })
 
-    except Exception as e:
-        logger.error(f"[webpage] Error processing {url}: {e}")
+    except AuthenticationError as e:
+        error_msg = f"OpenAI authentication failed: {str(e)}"
+        logger.error(f"[webpage] {error_msg}")
+        logger.error("Please check your OPENAI_API_KEY environment variable.")
         if callback_url:
             await notify_callback(callback_url, {
                 "url": url,
                 "status": "error",
-                "error": str(e)
+                "error": error_msg,
+                "error_type": "authentication"
+            })
+    except RateLimitError as e:
+        error_msg = f"OpenAI rate limit exceeded: {str(e)}"
+        logger.warning(f"[webpage] {error_msg}")
+        if callback_url:
+            await notify_callback(callback_url, {
+                "url": url,
+                "status": "error",
+                "error": error_msg,
+                "error_type": "rate_limit"
+            })
+    except APIError as e:
+        error_msg = f"OpenAI API error: {str(e)}"
+        logger.error(f"[webpage] {error_msg}")
+        if callback_url:
+            await notify_callback(callback_url, {
+                "url": url,
+                "status": "error",
+                "error": error_msg,
+                "error_type": "api_error"
+            })
+    except Exception as e:
+        error_msg = str(e)
+        logger.error(f"[webpage] Unexpected error processing {url}: {error_msg}")
+        if callback_url:
+            await notify_callback(callback_url, {
+                "url": url,
+                "status": "error",
+                "error": error_msg,
+                "error_type": "unexpected"
             })
             
 async def process_query_background(
@@ -176,39 +276,129 @@ async def process_query_background(
     task_id: str,
     callback_url: Optional[str] = None,
 ):
-    logger.info(f"[{task_id}] Starting async query with mode='{mode}'")
+    short_id = task_id[:8]
+    logger.info(f"🧠 [bg-{short_id}] Starting background query processing")
+    logger.info(f"📊 [bg-{short_id}] Query stats: {len(query)} chars, mode='{mode}'")
+    
     start_total = time.perf_counter()
 
     try:
+        # Phase 1: LightRAG Query Processing
+        logger.info(f"⚙️ [bg-{short_id}] Phase 1: Initializing LightRAG query...")
         t0 = time.perf_counter()
+        
         param = QueryParam(mode=mode)
+        logger.info(f"🔍 [bg-{short_id}] Executing RAG query with mode '{mode}'...")
+        
         result = await asyncio.to_thread(rag.query, query, param=param)
+        
         t1 = time.perf_counter()
-        logger.info(f"[{task_id}] LightRAG.query executed in {t1 - t0:.2f}s")
+        rag_time = t1 - t0
+        logger.info(f"✅ [bg-{short_id}] LightRAG query completed: {rag_time:.2f}s")
 
+        # Phase 2: Result Processing
+        logger.info(f"📝 [bg-{short_id}] Phase 2: Processing results...")
+        t2 = time.perf_counter()
+        
         total = time.perf_counter() - start_total
-        logger.info(f"[{task_id}] Total query processing time: {total:.2f}s")
+        result_length = len(str(result)) if result else 0
+        result_json = json.dumps(result)
+        
+        # Save result in database
+        await save_task_result(task_id, "done", result_json, total)
+        t3 = time.perf_counter()
+        db_time = t3 - t2
+        
+        logger.info(f"💾 [bg-{short_id}] Result saved to database: {db_time:.3f}s")
 
-        # Save result in memory
-        await save_task_result(task_id, "done", json.dumps(result), total)
-
+        # Phase 3: Callback Notification
         if callback_url:
+            logger.info(f"📞 [bg-{short_id}] Phase 3: Sending callback notification...")
+            t4 = time.perf_counter()
+            
             await notify_callback(callback_url, {
                 "task_id": task_id,
                 "status": "done",
                 "response": result,
                 "processing_time_seconds": round(total, 2)
             })
+            
+            t5 = time.perf_counter()
+            callback_time = t5 - t4
+            logger.info(f"📡 [bg-{short_id}] Callback sent: {callback_time:.3f}s")
+        else:
+            logger.info(f"🔕 [bg-{short_id}] No callback URL provided")
+
+        # Final summary
+        logger.info(f"🎉 [bg-{short_id}] Background query completed successfully:")
+        logger.info(f"   ⏱️  Total time: {total:.2f}s")
+        logger.info(f"   🧠 LightRAG time: {rag_time:.2f}s ({(rag_time/total)*100:.1f}%)")
+        logger.info(f"   💾 Database time: {db_time:.3f}s ({(db_time/total)*100:.1f}%)")
+        if callback_url:
+            logger.info(f"   📡 Callback time: {callback_time:.3f}s ({(callback_time/total)*100:.1f}%)")
+        logger.info(f"   📊 Result length: {result_length} chars")
+        logger.info(f"   🔧 Mode: {mode}")
 
         return result
 
-    except Exception as e:
-        logger.error(f"[{task_id}] Error during query: {e}")
-        await save_task_result(task_id, "failed", str(e), 0)
+    except AuthenticationError as e:
+        total_time = time.perf_counter() - start_total
+        error_msg = f"OpenAI authentication failed: {str(e)}"
+        logger.error(f"❌ [bg-{short_id}] {error_msg} (after {total_time:.2f}s)")
+        logger.error(f"🔑 [bg-{short_id}] Please check your OPENAI_API_KEY environment variable.")
+        await save_task_result(task_id, "failed", error_msg, total_time)
         if callback_url:
             await notify_callback(callback_url, {
                 "task_id": task_id,
                 "status": "failed",
-                "error": str(e)
+                "error": error_msg,
+                "error_type": "authentication",
+                "processing_time_seconds": round(total_time, 2)
+            })
+        raise
+    except RateLimitError as e:
+        total_time = time.perf_counter() - start_total
+        error_msg = f"OpenAI rate limit exceeded: {str(e)}"
+        logger.warning(f"⚠️ [bg-{short_id}] {error_msg} (after {total_time:.2f}s)")
+        logger.warning(f"💰 [bg-{short_id}] Consider upgrading your OpenAI plan or try again later.")
+        await save_task_result(task_id, "failed", error_msg, total_time)
+        if callback_url:
+            await notify_callback(callback_url, {
+                "task_id": task_id,
+                "status": "failed",
+                "error": error_msg,
+                "error_type": "rate_limit",
+                "processing_time_seconds": round(total_time, 2)
+            })
+        raise
+    except APIError as e:
+        total_time = time.perf_counter() - start_total
+        error_msg = f"OpenAI API error: {str(e)}"
+        logger.error(f"🔴 [bg-{short_id}] {error_msg} (after {total_time:.2f}s)")
+        logger.error(f"🌐 [bg-{short_id}] This may be a temporary OpenAI service issue.")
+        await save_task_result(task_id, "failed", error_msg, total_time)
+        if callback_url:
+            await notify_callback(callback_url, {
+                "task_id": task_id,
+                "status": "failed",
+                "error": error_msg,
+                "error_type": "api_error",
+                "processing_time_seconds": round(total_time, 2)
+            })
+        raise
+    except Exception as e:
+        total_time = time.perf_counter() - start_total
+        error_msg = str(e)
+        logger.error(f"💥 [bg-{short_id}] Unexpected error: {error_msg} (after {total_time:.2f}s)")
+        logger.error(f"🔍 [bg-{short_id}] Error type: {type(e).__name__}")
+        logger.error(f"📊 [bg-{short_id}] Query length: {len(query)} chars, mode: {mode}")
+        await save_task_result(task_id, "failed", error_msg, total_time)
+        if callback_url:
+            await notify_callback(callback_url, {
+                "task_id": task_id,
+                "status": "failed",
+                "error": error_msg,
+                "error_type": "unexpected",
+                "processing_time_seconds": round(total_time, 2)
             })
         raise

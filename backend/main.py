@@ -22,7 +22,7 @@ from lightrag import LightRAG, QueryParam
 from lightrag.llm.openai import gpt_4o_mini_complete, openai_embed
 from lightrag.kg.shared_storage import initialize_pipeline_status
 
-from openai import OpenAI
+from openai import OpenAI, AuthenticationError, RateLimitError, APIError
 from utils.utils_async import process_uploaded_documents, process_webpage_background, process_image_background, process_query_background
 from utils.db_async import init_db, fetch_task_result
 from youtube_service import get_youtube_transcript, batch_youtube_transcripts, BatchRequest
@@ -51,30 +51,127 @@ logger = logging.getLogger("ingest_kgraph")
 # === OpenAI Key Check ===
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
-    logger.error("OPENAI_API_KEY environment variable must be set.")
-    raise RuntimeError("OPENAI_API_KEY environment variable must be set.")
+    logger.error("❌ OPENAI_API_KEY environment variable is not set!")
+    logger.error("Please set your OpenAI API key:")
+    logger.error("  1. Create a .env file in the backend directory")
+    logger.error("  2. Add: OPENAI_API_KEY=your_actual_api_key_here")
+    logger.error("  3. Get your API key from: https://platform.openai.com/account/api-keys")
+    raise RuntimeError("OPENAI_API_KEY environment variable must be set. Check logs for setup instructions.")
+
+if OPENAI_API_KEY in ["your_openai_api_key_here", "your_actual_api_key_here", "test-key-for-import-check"]:
+    logger.error("❌ OPENAI_API_KEY is set to a placeholder value!")
+    logger.error("Please set your actual OpenAI API key:")
+    logger.error("  1. Get your API key from: https://platform.openai.com/account/api-keys")
+    logger.error("  2. Update your .env file with: OPENAI_API_KEY=your_actual_api_key_here")
+    raise RuntimeError("OPENAI_API_KEY must be set to your actual OpenAI API key, not a placeholder.")
+
+async def validate_openai_api_key(api_key: str) -> bool:
+    """Validate OpenAI API key by making a test call"""
+    try:
+        test_client = OpenAI(api_key=api_key)
+        # Make a simple API call to validate the key
+        await asyncio.to_thread(
+            test_client.models.list
+        )
+        return True
+    except Exception as e:
+        logger.error(f"❌ OpenAI API key validation failed: {str(e)}")
+        if "401" in str(e) or "invalid_api_key" in str(e):
+            logger.error("The provided API key is invalid or expired.")
+            logger.error("Please check your API key at: https://platform.openai.com/account/api-keys")
+        elif "429" in str(e):
+            logger.warning("⚠️ Rate limit reached, but API key appears valid.")
+            return True  # Key is valid, just rate limited
+        else:
+            logger.error("Network or other error during API key validation.")
+        return False
+
+def handle_openai_error(e: Exception) -> HTTPException:
+    """Convert OpenAI errors to appropriate HTTP exceptions"""
+    if isinstance(e, AuthenticationError):
+        logger.error(f"OpenAI authentication error: {str(e)}")
+        return HTTPException(
+            status_code=401, 
+            detail={
+                "error": "OpenAI authentication failed",
+                "message": "Invalid or missing API key. Please check your OPENAI_API_KEY environment variable.",
+                "type": "authentication_error"
+            }
+        )
+    elif isinstance(e, RateLimitError):
+        logger.warning(f"OpenAI rate limit error: {str(e)}")
+        return HTTPException(
+            status_code=429,
+            detail={
+                "error": "OpenAI rate limit exceeded",
+                "message": "Please try again later or upgrade your OpenAI plan.",
+                "type": "rate_limit_error"
+            }
+        )
+    elif isinstance(e, APIError):
+        logger.error(f"OpenAI API error: {str(e)}")
+        return HTTPException(
+            status_code=502,
+            detail={
+                "error": "OpenAI API error",
+                "message": f"OpenAI service error: {str(e)}",
+                "type": "api_error"
+            }
+        )
+    else:
+        logger.error(f"Unexpected error: {str(e)}")
+        return HTTPException(
+            status_code=500,
+            detail={
+                "error": "Internal server error",
+                "message": str(e),
+                "type": "unexpected_error"
+            }
+        )
 
 # === FastAPI Initialization with Lifespan ===
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Initializing database...")
-    await init_db()
-    logger.info("Database initialized.")
+    logger.info("🚀 Starting Study4Me backend server...")
     
-    logger.info("Initializing LightRAG...")
-    rag = LightRAG(
-        working_dir=RAG_DIR,
-        embedding_func=openai_embed,
-        llm_model_func=gpt_4o_mini_complete,
-    )
-    await rag.initialize_storages()
-    await initialize_pipeline_status()
-    app.state.rag = rag
+    logger.info("📊 Initializing database...")
+    await init_db()
+    logger.info("✅ Database initialized.")
+    
+    logger.info("🔑 Validating OpenAI API key...")
+    is_valid = await validate_openai_api_key(OPENAI_API_KEY)
+    if not is_valid:
+        logger.error("❌ Cannot start server with invalid OpenAI API key!")
+        logger.error("Please set a valid API key and restart the server.")
+        raise RuntimeError("Invalid OpenAI API key. Server startup aborted.")
+    logger.info("✅ OpenAI API key validated successfully.")
+    
+    logger.info("🧠 Initializing LightRAG...")
+    try:
+        rag = LightRAG(
+            working_dir=RAG_DIR,
+            embedding_func=openai_embed,
+            llm_model_func=gpt_4o_mini_complete,
+        )
+        await rag.initialize_storages()
+        await initialize_pipeline_status()
+        app.state.rag = rag
+        logger.info("✅ LightRAG initialized successfully.")
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize LightRAG: {str(e)}")
+        raise RuntimeError(f"LightRAG initialization failed: {str(e)}")
+    
+    logger.info("🔧 Initializing OpenAI client...")
     openai_client = OpenAI(api_key=OPENAI_API_KEY)
     app.state.openai_client = openai_client
-    logger.info("OpenAI client initialized.")
+    logger.info("✅ OpenAI client initialized.")
+    
+    logger.info("🎉 Study4Me backend server startup complete!")
     yield
+    
+    logger.info("🛑 Shutting down Study4Me backend server...")
     await rag.finalize_storages()
+    logger.info("✅ Server shutdown complete.")
 
 app = FastAPI(title="Study4Me RAG Server", lifespan=lifespan)
 
@@ -298,22 +395,52 @@ async def query_rag(
     rag: LightRAG = Depends(get_rag)
 ):
     """Query the LightRAG system using different RAG modes."""
+    query_id = str(uuid.uuid4())[:8]  # Short ID for tracking
     start_total = time.perf_counter()
+    
+    # Log query start with details
+    logger.info(f"🔍 [query-{query_id}] Starting synchronous query")
+    logger.info(f"📝 [query-{query_id}] Mode: {mode} | Query length: {len(query)} chars")
+    logger.debug(f"📄 [query-{query_id}] Query content: {query[:200]}{'...' if len(query) > 200 else ''}")
+    
     try:
-        # Log start of query
+        # Log LightRAG processing start
         t0 = time.perf_counter()
+        logger.info(f"⚙️ [query-{query_id}] Starting LightRAG processing...")
+        
         param = QueryParam(mode=mode)
         result = await asyncio.to_thread(rag.query, query, param=param)
+        
         t1 = time.perf_counter()
-        logger.info(f"[query] LightRAG.query execution: {t1 - t0:.2f}s")
+        rag_time = t1 - t0
+        logger.info(f"✅ [query-{query_id}] LightRAG processing completed: {rag_time:.2f}s")
 
+        # Calculate total time and log results
         total = time.perf_counter() - start_total
-        logger.info(f"[query] Total endpoint time: {total:.2f}s")
+        result_length = len(str(result)) if result else 0
+        
+        logger.info(f"🎉 [query-{query_id}] Query completed successfully:")
+        logger.info(f"   ⏱️  Total time: {total:.2f}s")
+        logger.info(f"   🧠 LightRAG time: {rag_time:.2f}s ({(rag_time/total)*100:.1f}%)")
+        logger.info(f"   📊 Response length: {result_length} chars")
+        logger.info(f"   🔧 Mode used: {mode}")
 
         return {"result": result}
+        
+    except (AuthenticationError, RateLimitError, APIError) as e:
+        logger.error(f"❌ [query-{query_id}] OpenAI API error after {time.perf_counter() - start_total:.2f}s")
+        raise handle_openai_error(e)
     except Exception as e:
-        logger.error(f"Query failed: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        total_time = time.perf_counter() - start_total
+        logger.error(f"💥 [query-{query_id}] Query failed after {total_time:.2f}s: {str(e)}")
+        logger.error(f"🔍 [query-{query_id}] Error details: {type(e).__name__}: {str(e)}")
+        return JSONResponse(status_code=500, content={
+            "error": "Query processing failed",
+            "message": str(e),
+            "type": "processing_error",
+            "query_id": query_id,
+            "processing_time": round(total_time, 2)
+        })
 
 @app.post("/query-async", tags=["Queries"])
 async def query_rag_async(
@@ -324,23 +451,45 @@ async def query_rag_async(
     rag: LightRAG = Depends(get_rag),
 ):
     task_id = str(uuid.uuid4())
+    
+    # Log async query initiation
+    logger.info(f"🚀 [async-{task_id[:8]}] Initiating async query")
+    logger.info(f"📝 [async-{task_id[:8]}] Mode: {mode} | Query length: {len(query)} chars")
+    logger.info(f"🔗 [async-{task_id[:8]}] Callback URL: {'Yes' if callback_url else 'No'}")
+    logger.debug(f"📄 [async-{task_id[:8]}] Query content: {query[:200]}{'...' if len(query) > 200 else ''}")
 
     with TASK_LOCK:
         TASK_STATUS[task_id] = "processing"
 
     def fire_and_forget():
         try:
+            logger.info(f"⚙️ [async-{task_id[:8]}] Starting background processing...")
+            start_bg = time.perf_counter()
+            
             asyncio.run(process_query_background(query, mode, rag, task_id, callback_url))
+            
+            total_bg = time.perf_counter() - start_bg
+            logger.info(f"✅ [async-{task_id[:8]}] Background processing completed in {total_bg:.2f}s")
+            
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "done"
         except Exception as e:
+            total_bg = time.perf_counter() - start_bg if 'start_bg' in locals() else 0
+            logger.error(f"💥 [async-{task_id[:8]}] Background query failed after {total_bg:.2f}s: {str(e)}")
+            logger.error(f"🔍 [async-{task_id[:8]}] Error details: {type(e).__name__}: {str(e)}")
+            
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "failed"
-            logger.error(f"[{task_id}] Background query failed: {e}")
 
     background_tasks.add_task(fire_and_forget)
-
-    return {"status": "processing", "task_id": task_id, "query": query}
+    
+    logger.info(f"📤 [async-{task_id[:8]}] Async query queued successfully")
+    return {
+        "status": "processing", 
+        "task_id": task_id, 
+        "query_preview": query[:100] + "..." if len(query) > 100 else query,
+        "mode": mode
+    }
 
 @app.get("/graph/json", tags=["Knowledge Graph"])
 async def get_knowledge_graph_from_file():
