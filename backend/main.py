@@ -23,7 +23,7 @@ from lightrag.llm.openai import gpt_4o_mini_complete, openai_embed
 from lightrag.kg.shared_storage import initialize_pipeline_status
 
 from openai import OpenAI, AuthenticationError, RateLimitError, APIError
-from utils.utils_async import process_uploaded_documents, process_webpage_background, process_image_background, process_query_background
+from utils.utils_async import process_uploaded_documents, process_webpage_background, process_image_background, process_query_background, process_youtube_background
 from utils.db_async import init_db, fetch_task_result
 from youtube_service import get_youtube_transcript, batch_youtube_transcripts, BatchRequest
 
@@ -374,6 +374,54 @@ async def process_webpage(
     background_tasks.add_task(fire_and_forget, url, rag, callback_url)
     
     return {"status": "processing", "url": url, "task_id": task_id}
+
+@app.post("/youtube/process", tags=["Knowledge Upload"])
+async def process_youtube_video(
+    background_tasks: BackgroundTasks,
+    url: str = Body(..., embed=True),
+    callback_url: Optional[str] = Body(None, embed=True),
+    rag: LightRAG = Depends(get_rag),
+):
+    """Process YouTube video transcript and add to LightRAG knowledge base"""
+    task_id = str(uuid.uuid4())
+    
+    # Log YouTube processing initiation
+    logger.info(f"📺 [youtube-{task_id[:8]}] Initiating YouTube video processing")
+    logger.info(f"🔗 [youtube-{task_id[:8]}] URL: {url}")
+    logger.info(f"📞 [youtube-{task_id[:8]}] Callback URL: {'Yes' if callback_url else 'No'}")
+    
+    with TASK_LOCK:
+        TASK_STATUS[task_id] = "processing"
+
+    def fire_and_forget():
+        try:
+            logger.info(f"⚙️ [youtube-{task_id[:8]}] Starting background processing...")
+            start_bg = time.perf_counter()
+            
+            asyncio.run(process_youtube_background(url, rag, task_id, callback_url))
+            
+            total_bg = time.perf_counter() - start_bg
+            logger.info(f"✅ [youtube-{task_id[:8]}] Background processing completed in {total_bg:.2f}s")
+            
+            with TASK_LOCK:
+                TASK_STATUS[task_id] = "done"
+        except Exception as e:
+            total_bg = time.perf_counter() - start_bg if 'start_bg' in locals() else 0
+            logger.error(f"💥 [youtube-{task_id[:8]}] Background processing failed after {total_bg:.2f}s: {str(e)}")
+            logger.error(f"🔍 [youtube-{task_id[:8]}] Error details: {type(e).__name__}: {str(e)}")
+            
+            with TASK_LOCK:
+                TASK_STATUS[task_id] = "failed"
+
+    background_tasks.add_task(fire_and_forget)
+    
+    logger.info(f"📤 [youtube-{task_id[:8]}] YouTube processing queued successfully")
+    return {
+        "status": "processing", 
+        "task_id": task_id, 
+        "url": url,
+        "message": "YouTube video processing started. Transcript will be extracted and added to knowledge base."
+    }
 
 @app.get("/youtube/transcript", tags=["YouTube"])
 async def get_transcript(
