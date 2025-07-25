@@ -6,6 +6,8 @@ import logging
 import time
 import json
 import uuid
+import signal
+import sys
 from typing import List, Optional, Dict, Any
 from contextlib import asynccontextmanager
 from threading import Lock
@@ -30,6 +32,10 @@ from youtube_service import get_youtube_transcript, batch_youtube_transcripts, B
 # Handle multiple tasks statuses
 TASK_STATUS = {}  # Ex: {task_id: "processing" | "done" | "failed"}
 TASK_LOCK = Lock()
+
+# Global shutdown flag
+SHUTDOWN_EVENT = asyncio.Event()
+BACKGROUND_TASKS = set()  # Track running background tasks
 
 # === Configs and Paths ===
 # Load environment variables from config.env or .env
@@ -129,9 +135,20 @@ def handle_openai_error(e: Exception) -> HTTPException:
             }
         )
 
+# === Signal Handlers ===
+def signal_handler(signum, frame):
+    """Handle shutdown signals gracefully"""
+    logger.info(f"🛑 Received signal {signum}, initiating graceful shutdown...")
+    SHUTDOWN_EVENT.set()
+
+# Register signal handlers
+signal.signal(signal.SIGINT, signal_handler)  # Ctrl+C
+signal.signal(signal.SIGTERM, signal_handler)  # Docker/Kubernetes shutdown
+
 # === FastAPI Initialization with Lifespan ===
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Startup
     logger.info("🚀 Starting Study4Me backend server...")
     
     logger.info("📊 Initializing database...")
@@ -147,6 +164,7 @@ async def lifespan(app: FastAPI):
     logger.info("✅ OpenAI API key validated successfully.")
     
     logger.info("🧠 Initializing LightRAG...")
+    rag = None
     try:
         rag = LightRAG(
             working_dir=RAG_DIR,
@@ -167,11 +185,42 @@ async def lifespan(app: FastAPI):
     logger.info("✅ OpenAI client initialized.")
     
     logger.info("🎉 Study4Me backend server startup complete!")
-    yield
     
-    logger.info("🛑 Shutting down Study4Me backend server...")
-    await rag.finalize_storages()
-    logger.info("✅ Server shutdown complete.")
+    try:
+        yield
+    finally:
+        # Shutdown
+        logger.info("🛑 Initiating graceful shutdown...")
+        
+        # Signal shutdown to background tasks
+        SHUTDOWN_EVENT.set()
+        
+        # Wait for background tasks to complete (with timeout)
+        if BACKGROUND_TASKS:
+            logger.info(f"⏳ Waiting for {len(BACKGROUND_TASKS)} background tasks to complete...")
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*BACKGROUND_TASKS, return_exceptions=True),
+                    timeout=10.0
+                )
+                logger.info("✅ All background tasks completed.")
+            except asyncio.TimeoutError:
+                logger.warning("⚠️ Background tasks did not complete within 10 seconds, forcing shutdown.")
+                # Cancel remaining tasks
+                for task in BACKGROUND_TASKS:
+                    if not task.done():
+                        task.cancel()
+        
+        # Finalize LightRAG
+        if rag:
+            try:
+                logger.info("🧠 Finalizing LightRAG...")
+                await rag.finalize_storages()
+                logger.info("✅ LightRAG finalized successfully.")
+            except Exception as e:
+                logger.warning(f"⚠️ Error finalizing LightRAG: {str(e)}")
+        
+        logger.info("✅ Graceful shutdown complete.")
 
 app = FastAPI(title="Study4Me RAG Server", lifespan=lifespan)
 
@@ -225,17 +274,27 @@ async def upload_documents(
     with TASK_LOCK:
         TASK_STATUS[task_id] = "processing"
     
-    def fire_and_forget(saved_paths, rag, callback_url):
+    async def process_with_tracking():
+        task = asyncio.current_task()
+        BACKGROUND_TASKS.add(task)
         try:
-            asyncio.run(process_uploaded_documents(saved_paths, rag, callback_url))
+            await process_uploaded_documents(saved_paths, rag, callback_url)
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "done"
         except Exception as e:
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "failed"
             logger.error(f"[{task_id}] Background task failed: {e}")
+        finally:
+            BACKGROUND_TASKS.discard(task)
     
-    background_tasks.add_task(fire_and_forget, saved_paths, rag, callback_url)
+    def fire_and_forget():
+        try:
+            asyncio.run(process_with_tracking())
+        except Exception as e:
+            logger.error(f"[{task_id}] Fire and forget wrapper failed: {e}")
+    
+    background_tasks.add_task(fire_and_forget)
 
     return {"status": "processing", "files": [name for name, _ in saved_paths], "task_id": task_id}
 
@@ -361,17 +420,28 @@ async def process_webpage(
     with TASK_LOCK:
         TASK_STATUS[task_id] = "processing"
     
-    def fire_and_forget(url, rag, callback_url):
+    async def process_with_tracking():
+        task = asyncio.current_task()
+        BACKGROUND_TASKS.add(task)
         try:
-            asyncio.run(process_webpage_background(url, rag, callback_url))
+            await process_webpage_background(url, rag, callback_url)
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "done"
         except Exception as e:
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "failed"
             logger.error(f"[{task_id}] Background task failed: {e}")
+        finally:
+            BACKGROUND_TASKS.discard(task)
     
-    background_tasks.add_task(fire_and_forget, url, rag, callback_url)
+    async def fire_and_forget():
+        try:
+            await process_with_tracking()
+        except Exception as e:
+            logger.error(f"[{task_id}] Fire and forget wrapper failed: {e}")
+    
+    task = asyncio.create_task(fire_and_forget())
+    BACKGROUND_TASKS.add(task)
     
     return {"status": "processing", "url": url, "task_id": task_id}
 
@@ -393,12 +463,14 @@ async def process_youtube_video(
     with TASK_LOCK:
         TASK_STATUS[task_id] = "processing"
 
-    def fire_and_forget():
+    async def process_with_tracking():
+        task = asyncio.current_task()
+        BACKGROUND_TASKS.add(task)
         try:
             logger.info(f"⚙️ [youtube-{task_id[:8]}] Starting background processing...")
             start_bg = time.perf_counter()
             
-            asyncio.run(process_youtube_background(url, rag, task_id, callback_url))
+            await process_youtube_background(url, rag, task_id, callback_url)
             
             total_bg = time.perf_counter() - start_bg
             logger.info(f"✅ [youtube-{task_id[:8]}] Background processing completed in {total_bg:.2f}s")
@@ -412,8 +484,11 @@ async def process_youtube_video(
             
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "failed"
-
-    background_tasks.add_task(fire_and_forget)
+        finally:
+            BACKGROUND_TASKS.discard(task)
+    
+    task = asyncio.create_task(process_with_tracking())
+    BACKGROUND_TASKS.add(task)
     
     logger.info(f"📤 [youtube-{task_id[:8]}] YouTube processing queued successfully")
     return {
@@ -509,12 +584,14 @@ async def query_rag_async(
     with TASK_LOCK:
         TASK_STATUS[task_id] = "processing"
 
-    def fire_and_forget():
+    async def process_with_tracking():
+        task = asyncio.current_task()
+        BACKGROUND_TASKS.add(task)
         try:
             logger.info(f"⚙️ [async-{task_id[:8]}] Starting background processing...")
             start_bg = time.perf_counter()
             
-            asyncio.run(process_query_background(query, mode, rag, task_id, callback_url))
+            await process_query_background(query, mode, rag, task_id, callback_url)
             
             total_bg = time.perf_counter() - start_bg
             logger.info(f"✅ [async-{task_id[:8]}] Background processing completed in {total_bg:.2f}s")
@@ -528,8 +605,11 @@ async def query_rag_async(
             
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "failed"
-
-    background_tasks.add_task(fire_and_forget)
+        finally:
+            BACKGROUND_TASKS.discard(task)
+    
+    task = asyncio.create_task(process_with_tracking())
+    BACKGROUND_TASKS.add(task)
     
     logger.info(f"📤 [async-{task_id[:8]}] Async query queued successfully")
     return {
@@ -611,17 +691,22 @@ async def interpret_image(
     with TASK_LOCK:
         TASK_STATUS[task_id] = "processing"
     
-    def fire_and_forget(file_path, prompt, image_filename, openai_client, rag, callback_url):
+    async def process_with_tracking():
+        task = asyncio.current_task()
+        BACKGROUND_TASKS.add(task)
         try:
-            asyncio.run(process_image_background(file_path, prompt, image_filename, openai_client, rag, callback_url))
+            await process_image_background(file_path, prompt, image.filename, openai_client, rag, callback_url)
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "done"
         except Exception as e:
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "failed"
             logger.error(f"[{task_id}] Background task failed: {e}")
-
-    background_tasks.add_task(fire_and_forget, file_path, prompt, image.filename, openai_client, rag, callback_url)
+        finally:
+            BACKGROUND_TASKS.discard(task)
+    
+    task = asyncio.create_task(process_with_tracking())
+    BACKGROUND_TASKS.add(task)
 
     return {"status": "processing", "filename": image.filename, "task_id": task_id}
     

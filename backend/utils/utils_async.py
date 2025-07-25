@@ -14,10 +14,26 @@ import json
 
 logger = logging.getLogger(__name__)
 
+# Import shutdown event from main module
+def get_shutdown_event():
+    """Get shutdown event from main module to avoid circular imports"""
+    try:
+        import sys
+        if 'main' in sys.modules:
+            return sys.modules['main'].SHUTDOWN_EVENT
+    except (ImportError, AttributeError):
+        pass
+    return None
+
 async def process_uploaded_documents(saved_paths, rag: LightRAG, callback_url: Optional[str]):
+    shutdown_event = get_shutdown_event()
     converter = DocumentConverter()
 
     for filename, file_path in saved_paths:
+        # Check for shutdown signal
+        if shutdown_event and shutdown_event.is_set():
+            logger.info(f"[{filename}] Shutdown signal received, stopping processing")
+            return
         start_total = time.perf_counter()
         logger.info(f"[{filename}] Starting ingestion...")
 
@@ -95,6 +111,11 @@ async def process_image_background(
     rag: LightRAG,
     callback_url: Optional[str]
 ):
+    shutdown_event = get_shutdown_event()
+    if shutdown_event and shutdown_event.is_set():
+        logger.info(f"[{filename}] Shutdown signal received, cancelling image processing")
+        return
+        
     start_total = time.perf_counter()
     logger.info(f"[{filename}] Starting image interpretation...")
 
@@ -197,6 +218,11 @@ async def process_webpage_background(
     rag: LightRAG,
     callback_url: Optional[str]
 ):
+    shutdown_event = get_shutdown_event()
+    if shutdown_event and shutdown_event.is_set():
+        logger.info(f"[webpage] Shutdown signal received, cancelling webpage processing")
+        return
+        
     start_total = time.perf_counter()
     logger.info(f"[webpage] Starting ingestion for: {url}")
 
@@ -276,7 +302,13 @@ async def process_query_background(
     task_id: str,
     callback_url: Optional[str] = None,
 ):
+    shutdown_event = get_shutdown_event()
     short_id = task_id[:8]
+    
+    if shutdown_event and shutdown_event.is_set():
+        logger.info(f"🧠 [bg-{short_id}] Shutdown signal received, cancelling query processing")
+        return
+    
     logger.info(f"🧠 [bg-{short_id}] Starting background query processing")
     logger.info(f"📊 [bg-{short_id}] Query stats: {len(query)} chars, mode='{mode}'")
     
@@ -410,7 +442,13 @@ async def process_youtube_background(
     callback_url: Optional[str] = None,
 ):
     """Process YouTube video transcript and add to LightRAG"""
+    shutdown_event = get_shutdown_event()
     short_id = task_id[:8]
+    
+    if shutdown_event and shutdown_event.is_set():
+        logger.info(f"📺 [yt-{short_id}] Shutdown signal received, cancelling YouTube processing")
+        return
+    
     logger.info(f"📺 [yt-{short_id}] Starting YouTube video processing")
     logger.info(f"🔗 [yt-{short_id}] URL: {url}")
     
