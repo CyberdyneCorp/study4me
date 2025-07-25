@@ -1,0 +1,57 @@
+# FastAPI and web framework dependencies
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+python-multipart==0.0.19
+
+# CORS middleware
+# (included in fastapi)
+
+# Environment and configuration
+python-dotenv==1.0.1
+
+# OpenAI and LLM dependencies
+openai==1.58.1
+lightrag==0.0.5
+
+# Document processing
+docling==2.8.1
+
+# YouTube transcript processing
+yt-dlp==2024.12.13
+
+# Database
+aiosqlite==0.20.0
+
+# Graph processing and visualization
+networkx==3.4.2
+matplotlib==3.10.0
+
+# HTTP client for callbacks
+httpx==0.28.1
+
+# Data processing and utilities
+numpy==2.2.1
+pandas==2.2.3
+
+# Image processing (for OCR if needed)
+Pillow==11.0.0
+
+# Text processing
+trafilatura==1.12.2
+
+# Audio processing (for potential ElevenLabs integration)
+# elevenlabs==1.19.3  # Uncomment when needed
+
+# Background task processing
+# celery==5.4.0  # Alternative to FastAPI BackgroundTasks if needed
+# redis==5.2.1   # For Celery broker if needed
+
+# Testing dependencies (optional)
+pytest==8.3.4
+pytest-asyncio==0.25.0
+httpx==0.28.1  # For testing HTTP endpoints
+
+# Development dependencies
+black==24.12.0
+flake8==7.1.1
+isort==5.13.2
