@@ -162,22 +162,44 @@ flake8 .
 
 ## Production Deployment
 
-### Using Docker
+### Using Docker (Recommended)
 
-Create a `Dockerfile`:
+The backend includes a production-ready Docker setup with external volume support for persistent knowledge graph storage.
 
-```dockerfile
-FROM python:3.11-slim
+#### Quick Start
 
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+```bash
+# Create external data directory
+mkdir -p ./data/rag_storage ./data/uploaded_docs ./logs
 
-COPY . .
-EXPOSE 8000
+# Set up environment
+cp .env.docker.example .env.docker
+# Edit .env.docker with your OpenAI API key
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Build and run
+docker-compose up -d
 ```
+
+#### Docker Features
+
+- **Multi-stage build** for optimized image size
+- **External volume mounting** for persistent knowledge graphs
+- **Non-root user** for security
+- **Health checks** for container orchestration
+- **Automatic log rotation** and resource limits
+- **Production-ready** uvicorn configuration
+
+#### Volume Mapping
+
+```yaml
+volumes:
+  # Persistent knowledge graphs and uploads
+  - ./data:/app/data
+  # Optional: External logs
+  - ./logs:/app/logs
+```
+
+See [DOCKER.md](./DOCKER.md) for comprehensive Docker deployment guide.
 
 ### Environment Variables
 

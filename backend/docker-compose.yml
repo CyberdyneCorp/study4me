@@ -1,0 +1,82 @@
+# Study4Me Backend Docker Compose Configuration
+# This file demonstrates how to run the backend with external volume mounting
+
+version: '3.8'
+
+services:
+  study4me-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: study4me-backend
+    restart: unless-stopped
+    
+    # Environment variables
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - RAG_DIR=/app/data/rag_storage
+      - UPLOAD_DIR=/app/data/uploaded_docs
+      - DB_PATH=/app/data/rag_tasks.db
+      - CORS_ORIGINS=*
+      - MAX_WORKERS=4
+      - YOUTUBE_MAX_RETRIES=3
+      - YOUTUBE_TIMEOUT=30
+      - WEB_SCRAPING_TIMEOUT=30
+      - WEB_SCRAPING_USER_AGENT=Study4Me-Bot/1.0
+    
+    # Port mapping
+    ports:
+      - "8000:8000"
+    
+    # Volume mounts - External folder for persistent knowledge graphs
+    volumes:
+      # Mount external folder for knowledge graphs and uploaded documents
+      - ./data:/app/data
+      # Optional: Mount logs to external folder
+      - ./logs:/app/logs
+      # Optional: Mount custom .env file
+      # - ./.env.docker:/app/.env
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/readyz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Resource limits (adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Optional: Add a reverse proxy (uncomment if needed)
+# nginx-proxy:
+#   image: nginx:alpine
+#   container_name: study4me-proxy
+#   restart: unless-stopped
+#   ports:
+#     - "80:80"
+#     - "443:443"
+#   volumes:
+#     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+#     - ./ssl:/etc/nginx/ssl:ro
+#   depends_on:
+#     - study4me-backend
+
+# Networks (if you need custom networking)
+networks:
+  default:
+    name: study4me-network
