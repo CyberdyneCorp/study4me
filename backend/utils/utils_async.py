@@ -35,6 +35,71 @@ def count_tokens(text: str, model: str = "gpt-4") -> int:
     tokens = encoding.encode(text)
     return len(tokens)
 
+def create_context_query_prompt(query: str, context: str, topic_name: str) -> str:
+    """
+    Create a prompt for ChatGPT API with context from study topic content.
+    
+    Args:
+        query (str): The user's question
+        context (str): The combined content from the study topic
+        topic_name (str): Name of the study topic for reference
+        
+    Returns:
+        str: Formatted prompt for ChatGPT API
+    """
+    prompt = f"""You are an AI assistant specializing in answering questions based on provided study material. You have access to content from the study topic "{topic_name}".
+
+Your task is to answer the user's question using ONLY the information provided in the context below. Follow these guidelines:
+
+1. **Base your answer exclusively on the provided context** - Do not use external knowledge
+2. **Be comprehensive and detailed** - Use all relevant information from the context
+3. **Cite specific parts** - Reference specific sections, documents, or sources when possible
+4. **Be accurate** - Only state what is explicitly supported by the context
+5. **If information is missing** - Clearly state when the context doesn't contain enough information to fully answer the question
+6. **Maintain structure** - Organize your response clearly with headings, bullet points, or numbered lists when appropriate
+7. **Quote directly** - Include relevant quotes from the source material when they support your answer
+
+CONTEXT:
+{context}
+
+USER QUESTION: {query}
+
+Please provide a comprehensive answer based solely on the context above. If the context doesn't contain sufficient information to answer the question, explain what information is missing."""
+
+    return prompt
+
+async def query_with_context(query: str, context: str, topic_name: str, openai_client: OpenAI) -> str:
+    """
+    Query ChatGPT API with context for non-knowledge-graph topics.
+    
+    Args:
+        query (str): The user's question
+        context (str): The combined content from study topic
+        topic_name (str): Name of the study topic
+        openai_client (OpenAI): OpenAI client instance
+        
+    Returns:
+        str: The AI's response
+    """
+    prompt = create_context_query_prompt(query, context, topic_name)
+    
+    try:
+        response = await asyncio.to_thread(
+            openai_client.chat.completions.create,
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a helpful AI assistant that answers questions based on provided study material."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=2000,
+            temperature=0.1  # Lower temperature for more focused, factual responses
+        )
+        
+        return response.choices[0].message.content
+    except Exception as e:
+        logger.error(f"ChatGPT API error: {str(e)}")
+        raise
+
 # Import shutdown event from main module
 def get_shutdown_event():
     """Get shutdown event from main module to avoid circular imports"""
@@ -46,7 +111,7 @@ def get_shutdown_event():
         pass
     return None
 
-async def process_uploaded_documents(saved_paths, rag: LightRAG, callback_url: Optional[str], 
+async def process_uploaded_documents(saved_paths, rag: Optional[LightRAG], callback_url: Optional[str], 
                                    study_topic_id: str = None, content_items: list = None):
     shutdown_event = get_shutdown_event()
     converter = DocumentConverter()
@@ -90,14 +155,14 @@ async def process_uploaded_documents(saved_paths, rag: LightRAG, callback_url: O
 
             # --- LightRAG insertion (conditional) ---
             rag_time = 0
-            if use_knowledge_graph:
+            if use_knowledge_graph and rag:
                 t0 = time.perf_counter()
                 await asyncio.to_thread(rag.insert, text, file_paths=[file_path])
                 t1 = time.perf_counter()
                 rag_time = t1 - t0
                 logger.info(f"[{filename}] LightRAG.insert: {rag_time:.2f}s")
             else:
-                logger.info(f"[{filename}] Skipping LightRAG insertion (knowledge graph disabled for topic)")
+                logger.info(f"[{filename}] Skipping LightRAG insertion (knowledge graph disabled for topic or no RAG instance)")
 
             # --- Save content item to database ---
             if study_topic_id and file_path in content_items_map:
@@ -181,7 +246,7 @@ async def process_image_background(
     prompt: str,
     filename: str,
     openai_client: OpenAI,
-    rag: LightRAG,
+    rag: Optional[LightRAG],
     callback_url: Optional[str],
     study_topic_id: str = None,
     content_id: str = None
@@ -244,14 +309,14 @@ async def process_image_background(
 
         # LightRAG insert (conditional)
         rag_time = 0
-        if use_knowledge_graph:
+        if use_knowledge_graph and rag:
             t0 = time.perf_counter()
             await asyncio.to_thread(rag.insert, content, file_paths=[filename])
             t1 = time.perf_counter()
             rag_time = t1 - t0
             logger.info(f"[{filename}] LightRAG.insert: {rag_time:.2f}s")
         else:
-            logger.info(f"[{filename}] Skipping LightRAG insertion (knowledge graph disabled for topic)")
+            logger.info(f"[{filename}] Skipping LightRAG insertion (knowledge graph disabled for topic or no RAG instance)")
 
         # --- Save content item to database ---
         if study_topic_id and content_id:
@@ -336,7 +401,7 @@ async def process_image_background(
             
 async def process_webpage_background(
     url: str,
-    rag: LightRAG,
+    rag: Optional[LightRAG],
     callback_url: Optional[str],
     study_topic_id: str = None,
     content_id: str = None
@@ -376,14 +441,14 @@ async def process_webpage_background(
 
         # --- LightRAG insertion (conditional) ---
         rag_time = 0
-        if use_knowledge_graph:
+        if use_knowledge_graph and rag:
             t0 = time.perf_counter()
             await asyncio.to_thread(rag.insert, text, file_paths=[url])
             t1 = time.perf_counter()
             rag_time = t1 - t0
             logger.info(f"[webpage] LightRAG.insert: {rag_time:.2f}s")
         else:
-            logger.info(f"[webpage] Skipping LightRAG insertion (knowledge graph disabled for topic)")
+            logger.info(f"[webpage] Skipping LightRAG insertion (knowledge graph disabled for topic or no RAG instance)")
 
         # --- Save content item to database ---
         if study_topic_id and content_id:
@@ -465,9 +530,10 @@ async def process_webpage_background(
 async def process_query_background(
     query: str,
     mode: str,
-    rag: LightRAG,
+    rag: Optional[LightRAG],
     task_id: str,
     callback_url: Optional[str] = None,
+    study_topic_id: str = None,
 ):
     shutdown_event = get_shutdown_event()
     short_id = task_id[:8]
@@ -486,21 +552,112 @@ async def process_query_background(
     logger.info(f"🧠 [bg-{short_id}] Starting background query processing")
     logger.info(f"📊 [bg-{short_id}] Query stats: {len(query)} chars, mode='{mode}'")
     
+    # Get topic information
+    if not study_topic_id:
+        error_msg = "Study topic ID is required"
+        logger.error(f"❌ [bg-{short_id}] {error_msg}")
+        await save_task_result(task_id, "failed", error_msg, 0)
+        if callback_url:
+            await notify_callback(callback_url, {
+                "task_id": task_id,
+                "status": "failed",
+                "error": error_msg,
+                "error_type": "missing_parameter",
+                "processing_time_seconds": 0
+            })
+        return
+    
+    topic = await get_study_topic(study_topic_id)
+    if not topic:
+        error_msg = f"Study topic with ID '{study_topic_id}' not found"
+        logger.error(f"❌ [bg-{short_id}] {error_msg}")
+        await save_task_result(task_id, "failed", error_msg, 0)
+        if callback_url:
+            await notify_callback(callback_url, {
+                "task_id": task_id,
+                "status": "failed",
+                "error": error_msg,
+                "error_type": "topic_not_found",
+                "processing_time_seconds": 0
+            })
+        return
+    
     start_total = time.perf_counter()
+    processing_method = "LightRAG" if topic.get('use_knowledge_graph', True) else "ChatGPT+Context"
 
     try:
-        # Phase 1: LightRAG Query Processing
-        logger.info(f"⚙️ [bg-{short_id}] Phase 1: Initializing LightRAG query...")
-        t0 = time.perf_counter()
-        
-        param = QueryParam(mode=mode)
-        logger.info(f"🔍 [bg-{short_id}] Executing RAG query with mode '{mode}'...")
-        
-        result = await asyncio.to_thread(rag.query, query, param=param)
-        
-        t1 = time.perf_counter()
-        rag_time = t1 - t0
-        logger.info(f"✅ [bg-{short_id}] LightRAG query completed: {rag_time:.2f}s")
+        if topic.get('use_knowledge_graph', True):
+            # Use LightRAG for knowledge graph enabled topics
+            logger.info(f"🧠 [bg-{short_id}] Using LightRAG (knowledge graph enabled)")
+            
+            if not rag:
+                error_msg = f"Failed to initialize LightRAG for topic '{topic['name']}'"
+                logger.error(f"❌ [bg-{short_id}] {error_msg}")
+                await save_task_result(task_id, "failed", error_msg, time.perf_counter() - start_total)
+                if callback_url:
+                    await notify_callback(callback_url, {
+                        "task_id": task_id,
+                        "status": "failed",
+                        "error": error_msg,
+                        "error_type": "rag_initialization",
+                        "processing_time_seconds": round(time.perf_counter() - start_total, 2)
+                    })
+                return
+            
+            logger.info(f"⚙️ [bg-{short_id}] Phase 1: Initializing LightRAG query...")
+            t0 = time.perf_counter()
+            
+            param = QueryParam(mode=mode)
+            logger.info(f"🔍 [bg-{short_id}] Executing RAG query with mode '{mode}'...")
+            
+            result = await asyncio.to_thread(rag.query, query, param=param)
+            
+            t1 = time.perf_counter()
+            processing_time = t1 - t0
+            logger.info(f"✅ [bg-{short_id}] LightRAG query completed: {processing_time:.2f}s")
+            
+        else:
+            # Use ChatGPT with context for non-knowledge graph topics
+            logger.info(f"💬 [bg-{short_id}] Using ChatGPT with context (knowledge graph disabled)")
+            
+            t0 = time.perf_counter()
+            logger.info(f"⚙️ [bg-{short_id}] Phase 1: Loading topic content...")
+            
+            # Get all content for the topic
+            content_items = await list_content_items_by_topic(study_topic_id)
+            
+            # Combine all content
+            combined_content = ""
+            for item in content_items:
+                full_item = await get_content_item(item['content_id'])
+                if full_item and full_item.get('content'):
+                    combined_content += f"\n\n--- {full_item['title']} ---\n{full_item['content']}"
+            
+            if not combined_content.strip():
+                error_msg = f"No content available for topic '{topic['name']}'. Please upload content first."
+                logger.error(f"❌ [bg-{short_id}] {error_msg}")
+                await save_task_result(task_id, "failed", error_msg, time.perf_counter() - start_total)
+                if callback_url:
+                    await notify_callback(callback_url, {
+                        "task_id": task_id,
+                        "status": "failed",
+                        "error": error_msg,
+                        "error_type": "no_content",
+                        "processing_time_seconds": round(time.perf_counter() - start_total, 2)
+                    })
+                return
+            
+            logger.info(f"📄 [bg-{short_id}] Loaded {len(content_items)} content items ({len(combined_content)} chars)")
+            
+            # Query using ChatGPT with context
+            from openai import OpenAI
+            import os
+            openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            result = await query_with_context(query, combined_content, topic['name'], openai_client)
+            
+            t1 = time.perf_counter()
+            processing_time = t1 - t0
+            logger.info(f"✅ [bg-{short_id}] ChatGPT processing completed: {processing_time:.2f}s")
 
         # Phase 2: Result Processing
         logger.info(f"📝 [bg-{short_id}] Phase 2: Processing results...")
@@ -508,7 +665,19 @@ async def process_query_background(
         
         total = time.perf_counter() - start_total
         result_length = len(str(result)) if result else 0
-        result_json = json.dumps(result)
+        
+        # Create enhanced result object
+        enhanced_result = {
+            "result": result,
+            "processing_method": processing_method,
+            "processing_time_seconds": round(processing_time, 2),
+            "total_time_seconds": round(total, 2),
+            "study_topic_id": study_topic_id,
+            "study_topic_name": topic['name'],
+            "use_knowledge_graph": topic.get('use_knowledge_graph', True)
+        }
+        
+        result_json = json.dumps(enhanced_result)
         
         # Save result in database
         await save_task_result(task_id, "done", result_json, total)
@@ -525,7 +694,7 @@ async def process_query_background(
             await notify_callback(callback_url, {
                 "task_id": task_id,
                 "status": "done",
-                "response": result,
+                "response": enhanced_result,
                 "processing_time_seconds": round(total, 2)
             })
             
@@ -538,12 +707,16 @@ async def process_query_background(
         # Final summary
         logger.info(f"🎉 [bg-{short_id}] Background query completed successfully:")
         logger.info(f"   ⏱️  Total time: {total:.2f}s")
-        logger.info(f"   🧠 LightRAG time: {rag_time:.2f}s ({(rag_time/total)*100:.1f}%)")
+        logger.info(f"   🤖 Processing method: {processing_method}")
+        logger.info(f"   ⚡ Processing time: {processing_time:.2f}s ({(processing_time/total)*100:.1f}%)")
         logger.info(f"   💾 Database time: {db_time:.3f}s ({(db_time/total)*100:.1f}%)")
         if callback_url:
             logger.info(f"   📡 Callback time: {callback_time:.3f}s ({(callback_time/total)*100:.1f}%)")
         logger.info(f"   📊 Result length: {result_length} chars")
-        logger.info(f"   🔧 Mode: {mode}")
+        if topic.get('use_knowledge_graph', True):
+            logger.info(f"   🔧 LightRAG mode: {mode}")
+        else:
+            logger.info(f"   📄 Content items used: {len(content_items) if 'content_items' in locals() else 0}")
 
         return result
 
@@ -611,7 +784,7 @@ async def process_query_background(
 
 async def process_youtube_background(
     url: str,
-    rag: LightRAG,
+    rag: Optional[LightRAG],
     task_id: str,
     callback_url: Optional[str] = None,
     study_topic_id: str = None,
@@ -692,13 +865,13 @@ Transcript:
         
         # Insert into LightRAG (conditional)
         rag_time = 0
-        if use_knowledge_graph:
+        if use_knowledge_graph and rag:
             await asyncio.to_thread(rag.insert, formatted_content, file_paths=[url])
             t3 = time.perf_counter()
             rag_time = t3 - t2
             logger.info(f"✅ [yt-{short_id}] LightRAG processing completed: {rag_time:.2f}s")
         else:
-            logger.info(f"📺 [yt-{short_id}] Skipping LightRAG insertion (knowledge graph disabled for topic)")
+            logger.info(f"📺 [yt-{short_id}] Skipping LightRAG insertion (knowledge graph disabled for topic or no RAG instance)")
 
         # --- Save content item to database ---
         if study_topic_id and content_id:

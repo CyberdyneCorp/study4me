@@ -27,7 +27,7 @@ from lightrag.llm.openai import gpt_4o_mini_complete, openai_embed
 from lightrag.kg.shared_storage import initialize_pipeline_status
 
 from openai import OpenAI, AuthenticationError, RateLimitError, APIError
-from utils.utils_async import process_uploaded_documents, process_webpage_background, process_image_background, process_query_background, process_youtube_background, count_tokens
+from utils.utils_async import process_uploaded_documents, process_webpage_background, process_image_background, process_query_background, process_youtube_background, count_tokens, query_with_context
 from utils.db_async import (init_db, fetch_task_result, create_study_topic, get_study_topic, 
                            list_study_topics, update_study_topic, delete_study_topic,
                            create_content_item, get_content_item, list_content_items_by_topic, 
@@ -288,6 +288,55 @@ def get_rag(request: Request) -> LightRAG:
 def get_openai_client(request: Request) -> OpenAI:
     return request.app.state.openai_client
 
+# Topic-specific LightRAG instances cache
+_topic_rag_cache = {}
+
+async def get_topic_rag(study_topic_id: str) -> Optional[LightRAG]:
+    """
+    Get or create a LightRAG instance for a specific study topic.
+    Only creates instances for topics with knowledge graph enabled.
+    """
+    if not study_topic_id:
+        return None
+    
+    # Check if we already have a cached instance
+    if study_topic_id in _topic_rag_cache:
+        return _topic_rag_cache[study_topic_id]
+    
+    # Check if topic exists and has knowledge graph enabled
+    topic = await get_study_topic(study_topic_id)
+    if not topic:
+        logger.warning(f"❌ Study topic not found: {study_topic_id}")
+        return None
+    
+    if not topic.get('use_knowledge_graph', True):
+        logger.info(f"📚 Study topic '{topic['name']}' has knowledge graph disabled, skipping LightRAG creation")
+        return None
+    
+    # Create topic-specific directory
+    topic_rag_dir = os.path.join(RAG_DIR, f"topic_{study_topic_id}")
+    os.makedirs(topic_rag_dir, exist_ok=True)
+    
+    logger.info(f"🧠 Creating LightRAG instance for topic: {topic['name']} ({study_topic_id})")
+    
+    try:
+        topic_rag = LightRAG(
+            working_dir=topic_rag_dir,
+            embedding_func=openai_embed,
+            llm_model_func=gpt_4o_mini_complete,
+        )
+        await topic_rag.initialize_storages()
+        
+        # Cache the instance
+        _topic_rag_cache[study_topic_id] = topic_rag
+        
+        logger.info(f"✅ LightRAG instance created successfully for topic: {topic['name']}")
+        return topic_rag
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to create LightRAG for topic {study_topic_id}: {str(e)}")
+        return None
+
 # === Routes ===
 
 @app.get("/", tags=["Debug"])
@@ -306,7 +355,6 @@ async def upload_documents(
     files: List[UploadFile] = File(...),
     study_topic_id: str = Form(..., description="UUID of the study topic this content belongs to"),
     callback_url: Optional[str] = Form(None),
-    rag: LightRAG = Depends(get_rag),
 ):
     # Log upload initiation
     logger.info(f"📁 [upload] Starting document upload for study topic: {study_topic_id[:8]}")
@@ -352,7 +400,9 @@ async def upload_documents(
     async def process_with_tracking():
         try:
             logger.info(f"⚙️ [upload-{task_id[:8]}] Starting document processing...")
-            await process_uploaded_documents(saved_paths, rag, callback_url, study_topic_id, content_items)
+            # Get topic-specific RAG instance
+            topic_rag = await get_topic_rag(study_topic_id)
+            await process_uploaded_documents(saved_paths, topic_rag, callback_url, study_topic_id, content_items)
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "done"
             logger.info(f"✅ [upload-{task_id[:8]}] Document processing completed successfully")
@@ -496,7 +546,6 @@ async def process_webpage(
     url: str = Body(..., embed=True),
     study_topic_id: str = Body(..., description="UUID of the study topic this content belongs to", embed=True),
     callback_url: Optional[str] = Body(None, embed=True),
-    rag: LightRAG = Depends(get_rag),
 ):
     # Log webpage processing initiation
     logger.info(f"🌐 [webpage] Starting webpage processing for study topic: {study_topic_id[:8]}")
@@ -522,7 +571,9 @@ async def process_webpage(
     async def process_with_tracking():
         try:
             logger.info(f"⚙️ [webpage-{task_id[:8]}] Starting background processing...")
-            await process_webpage_background(url, rag, callback_url, study_topic_id, content_id)
+            # Get topic-specific RAG instance
+            topic_rag = await get_topic_rag(study_topic_id)
+            await process_webpage_background(url, topic_rag, callback_url, study_topic_id, content_id)
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "done"
             logger.info(f"✅ [webpage-{task_id[:8]}] Background processing completed successfully")
@@ -557,7 +608,6 @@ async def process_youtube_video(
     url: str = Form(...),
     study_topic_id: str = Form(..., description="UUID of the study topic this content belongs to"),
     callback_url: Optional[str] = Form(None),
-    rag: LightRAG = Depends(get_rag),
 ):
     """Process YouTube video transcript and add to LightRAG knowledge base"""
     # Log YouTube processing initiation
@@ -585,7 +635,9 @@ async def process_youtube_video(
             logger.info(f"⚙️ [youtube-{task_id[:8]}] Starting background processing...")
             start_bg = time.perf_counter()
             
-            await process_youtube_background(url, rag, task_id, callback_url, study_topic_id, content_id)
+            # Get topic-specific RAG instance
+            topic_rag = await get_topic_rag(study_topic_id)
+            await process_youtube_background(url, topic_rag, task_id, callback_url, study_topic_id, content_id)
             
             total_bg = time.perf_counter() - start_bg
             logger.info(f"✅ [youtube-{task_id[:8]}] Background processing completed in {total_bg:.2f}s")
@@ -637,41 +689,106 @@ async def batch_transcripts(request: BatchRequest):
 @app.get("/query", tags=["Queries"])
 async def query_rag(
     query: str = Query(...),
+    study_topic_id: str = Query(..., description="UUID of the study topic to query"),
     mode: Optional[str] = Query("hybrid"),
-    rag: LightRAG = Depends(get_rag)
 ):
     """Query the LightRAG system using different RAG modes."""
     query_id = str(uuid.uuid4())[:8]  # Short ID for tracking
     start_total = time.perf_counter()
     
     # Log query start with details
-    logger.info(f"🔍 [query-{query_id}] Starting synchronous query")
+    logger.info(f"🔍 [query-{query_id}] Starting synchronous query for topic: {study_topic_id[:8]}")
     logger.info(f"📝 [query-{query_id}] Mode: {mode} | Query length: {len(query)} chars")
     logger.debug(f"📄 [query-{query_id}] Query content: {query[:200]}{'...' if len(query) > 200 else ''}")
     
     try:
-        # Log LightRAG processing start
-        t0 = time.perf_counter()
-        logger.info(f"⚙️ [query-{query_id}] Starting LightRAG processing...")
+        # Check if topic exists first
+        topic = await get_study_topic(study_topic_id)
+        if not topic:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Study topic with ID '{study_topic_id}' not found"
+            )
         
-        param = QueryParam(mode=mode)
-        result = await asyncio.to_thread(rag.query, query, param=param)
-        
-        t1 = time.perf_counter()
-        rag_time = t1 - t0
-        logger.info(f"✅ [query-{query_id}] LightRAG processing completed: {rag_time:.2f}s")
+        # Branch based on knowledge graph setting
+        if topic.get('use_knowledge_graph', True):
+            # Use LightRAG for knowledge graph enabled topics
+            logger.info(f"🧠 [query-{query_id}] Using LightRAG (knowledge graph enabled)")
+            rag = await get_topic_rag(study_topic_id)
+            if not rag:
+                raise HTTPException(
+                    status_code=500, 
+                    detail=f"Failed to initialize LightRAG for topic '{topic['name']}'"
+                )
+            
+            t0 = time.perf_counter()
+            logger.info(f"⚙️ [query-{query_id}] Starting LightRAG processing...")
+            
+            param = QueryParam(mode=mode)
+            result = await asyncio.to_thread(rag.query, query, param=param)
+            
+            t1 = time.perf_counter()
+            processing_time = t1 - t0
+            logger.info(f"✅ [query-{query_id}] LightRAG processing completed: {processing_time:.2f}s")
+            
+        else:
+            # Use ChatGPT with context for non-knowledge graph topics
+            logger.info(f"💬 [query-{query_id}] Using ChatGPT with context (knowledge graph disabled)")
+            
+            t0 = time.perf_counter()
+            logger.info(f"⚙️ [query-{query_id}] Loading topic content...")
+            
+            # Get all content for the topic
+            content_items = await list_content_items_by_topic(study_topic_id)
+            
+            # Combine all content
+            combined_content = ""
+            for item in content_items:
+                full_item = await get_content_item(item['content_id'])
+                if full_item and full_item.get('content'):
+                    combined_content += f"\n\n--- {full_item['title']} ---\n{full_item['content']}"
+            
+            if not combined_content.strip():
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No content available for topic '{topic['name']}'. Please upload content first."
+                )
+            
+            logger.info(f"📄 [query-{query_id}] Loaded {len(content_items)} content items ({len(combined_content)} chars)")
+            
+            # Query using ChatGPT with context
+            openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            result = await query_with_context(query, combined_content, topic['name'], openai_client)
+            
+            t1 = time.perf_counter()
+            processing_time = t1 - t0
+            logger.info(f"✅ [query-{query_id}] ChatGPT processing completed: {processing_time:.2f}s")
 
         # Calculate total time and log results
         total = time.perf_counter() - start_total
         result_length = len(str(result)) if result else 0
         
+        processing_method = "LightRAG" if topic.get('use_knowledge_graph', True) else "ChatGPT+Context"
+        
         logger.info(f"🎉 [query-{query_id}] Query completed successfully:")
         logger.info(f"   ⏱️  Total time: {total:.2f}s")
-        logger.info(f"   🧠 LightRAG time: {rag_time:.2f}s ({(rag_time/total)*100:.1f}%)")
+        logger.info(f"   🤖 Processing method: {processing_method}")
+        logger.info(f"   ⚡ Processing time: {processing_time:.2f}s ({(processing_time/total)*100:.1f}%)")
         logger.info(f"   📊 Response length: {result_length} chars")
-        logger.info(f"   🔧 Mode used: {mode}")
+        if topic.get('use_knowledge_graph', True):
+            logger.info(f"   🔧 Mode used: {mode}")
+        else:
+            logger.info(f"   📄 Content items: {len(content_items)}")
 
-        return {"result": result}
+        return {
+            "result": result,
+            "processing_method": processing_method,
+            "processing_time_seconds": round(processing_time, 2),
+            "total_time_seconds": round(total, 2),
+            "study_topic_id": study_topic_id,
+            "study_topic_name": topic['name'],
+            "use_knowledge_graph": topic.get('use_knowledge_graph', True)
+        }
         
     except (AuthenticationError, RateLimitError, APIError) as e:
         logger.error(f"❌ [query-{query_id}] OpenAI API error after {time.perf_counter() - start_total:.2f}s")
@@ -692,14 +809,14 @@ async def query_rag(
 async def query_rag_async(
     background_tasks: BackgroundTasks,
     query: str = Query(...),
+    study_topic_id: str = Query(..., description="UUID of the study topic to query"),
     mode: Optional[str] = Query("hybrid"),
     callback_url: Optional[str] = Form(None),
-    rag: LightRAG = Depends(get_rag),
 ):
     task_id = str(uuid.uuid4())
     
     # Log async query initiation
-    logger.info(f"🚀 [async-{task_id[:8]}] Initiating async query")
+    logger.info(f"🚀 [async-{task_id[:8]}] Initiating async query for topic: {study_topic_id[:8]}")
     logger.info(f"📝 [async-{task_id[:8]}] Mode: {mode} | Query length: {len(query)} chars")
     logger.info(f"🔗 [async-{task_id[:8]}] Callback URL: {'Yes' if callback_url else 'No'}")
     logger.debug(f"📄 [async-{task_id[:8]}] Query content: {query[:200]}{'...' if len(query) > 200 else ''}")
@@ -712,7 +829,9 @@ async def query_rag_async(
             logger.info(f"⚙️ [async-{task_id[:8]}] Starting background processing...")
             start_bg = time.perf_counter()
             
-            await process_query_background(query, mode, rag, task_id, callback_url)
+            # Get topic-specific RAG instance
+            rag = await get_topic_rag(study_topic_id)
+            await process_query_background(query, mode, rag, task_id, callback_url, study_topic_id)
             
             total_bg = time.perf_counter() - start_bg
             logger.info(f"✅ [async-{task_id[:8]}] Background processing completed in {total_bg:.2f}s")
@@ -806,7 +925,6 @@ async def interpret_image(
     prompt: Optional[str] = Body("Describe this image and extract key information", embed=True),
     callback_url: Optional[str] = Form(None),
     openai_client: OpenAI = Depends(get_openai_client),
-    rag: LightRAG = Depends(get_rag)
 ):
     # Log image processing initiation
     logger.info(f"🖼️ [image] Starting image processing for study topic: {study_topic_id[:8]}")
@@ -836,7 +954,9 @@ async def interpret_image(
     
     async def process_with_tracking():
         try:
-            await process_image_background(file_path, prompt, image.filename, openai_client, rag, callback_url, study_topic_id, content_id)
+            # Get topic-specific RAG instance
+            topic_rag = await get_topic_rag(study_topic_id)
+            await process_image_background(file_path, prompt, image.filename, openai_client, topic_rag, callback_url, study_topic_id, content_id)
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "done"
         except Exception as e:
