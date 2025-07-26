@@ -1,0 +1,39 @@
+# Database files
+rag_tasks.db
+*.db
+
+# RAG storage (contains processed documents and knowledge graphs)
+rag_storage/
+
+# Uploaded documents (contains user files)
+uploaded_docs/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Environment files with sensitive information
+config.env
+.env
+.env.local
+.env.prod
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
