@@ -478,8 +478,7 @@
 <ChatModal 
   isOpen={$uiStore.isChatModalOpen}
   topicTitle={selectedTopic?.title || ''}
-  studyTopicId={$uiStore.selectedTopicForChat || ''}
-  sources={selectedTopic?.sources || []}
+  studyTopicId={selectedTopic?.id || ''}
   on:close={handleCloseChatModal}
 />
 
@@ -487,6 +486,7 @@
 <SourcesModal 
   isOpen={$uiStore.isSourcesModalOpen}
   topicTitle={selectedTopicForSources?.title || ''}
+  studyTopicId={selectedTopicForSources?.id || ''}
   on:close={handleCloseSourcesModal}
 />
 

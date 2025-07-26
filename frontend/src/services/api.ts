@@ -46,6 +46,44 @@ interface QueryResponse {
   use_knowledge_graph: boolean
 }
 
+interface ContentItem {
+  content_id: string
+  content_type: string
+  title: string
+  content: string
+  source_url?: string
+  file_path?: string
+  metadata?: any
+  created_at: string
+  content_length: number
+  number_tokens: number
+}
+
+interface StudyTopicContentResponse {
+  topic_id: string
+  topic_name: string
+  topic_description: string
+  use_knowledge_graph: boolean
+  content_items_count: number
+  total_content_length: number
+  number_tokens: number
+  content_items: ContentItem[]
+}
+
+interface StudyTopicSummaryResponse {
+  topic_id: string
+  topic_name: string
+  topic_description: string
+  summary: string
+  content_items_processed: number
+  total_content_length: number
+  total_content_tokens: number
+  summary_length: number
+  processing_time_seconds: number
+  total_time_seconds: number
+  generated_at: number
+}
+
 class ApiService {
   private async request<T>(
     endpoint: string,
@@ -115,6 +153,69 @@ class ApiService {
       method: 'DELETE',
     })
     return response as unknown as { message: string; topic_id: string; name: string }
+  }
+
+  async getStudyTopicContent(topicId: string): Promise<StudyTopicContentResponse> {
+    const response = await this.request<StudyTopicContentResponse>(`/study-topics/${topicId}/content`)
+    return response as unknown as StudyTopicContentResponse
+  }
+
+  async summarizeStudyTopicContent(topicId: string): Promise<StudyTopicSummaryResponse> {
+    const response = await this.request<StudyTopicSummaryResponse>(`/study-topics/${topicId}/summarize`)
+    return response as unknown as StudyTopicSummaryResponse
+  }
+
+  // === Knowledge Upload Methods ===
+
+  async uploadDocuments(files: File[], studyTopicId: string): Promise<UploadDocumentsResponse> {
+    const formData = new FormData()
+    
+    // Add each file to the form data
+    files.forEach(file => {
+      formData.append('files', file)
+    })
+    
+    // Add study topic ID
+    formData.append('study_topic_id', studyTopicId)
+    
+    const response = await this.request<UploadDocumentsResponse>('/documents/upload', {
+      method: 'POST',
+      headers: {}, // Remove Content-Type to let browser set it with boundary for FormData
+      body: formData,
+    })
+    
+    return response as unknown as UploadDocumentsResponse
+  }
+
+  async processWebpage(url: string, studyTopicId: string): Promise<ProcessWebpageResponse> {
+    const response = await this.request<ProcessWebpageResponse>('/webpage/process', {
+      method: 'POST',
+      body: JSON.stringify({
+        url,
+        study_topic_id: studyTopicId
+      }),
+    })
+    
+    return response as unknown as ProcessWebpageResponse
+  }
+
+  async processYouTubeVideo(url: string, studyTopicId: string): Promise<ProcessYouTubeResponse> {
+    const formData = new FormData()
+    formData.append('url', url)
+    formData.append('study_topic_id', studyTopicId)
+    
+    const response = await this.request<ProcessYouTubeResponse>('/youtube/process', {
+      method: 'POST',
+      headers: {}, // Remove Content-Type to let browser set it with boundary for FormData
+      body: formData,
+    })
+    
+    return response as unknown as ProcessYouTubeResponse
+  }
+
+  async getTaskStatus(taskId: string): Promise<TaskStatusResponse> {
+    const response = await this.request<TaskStatusResponse>(`/task-status/${taskId}`)
+    return response as unknown as TaskStatusResponse
   }
 
   // === Query System ===
@@ -195,10 +296,53 @@ export const apiService = new ApiService()
 export default apiService
 
 // Export types for use in components
+// === Knowledge Upload Types ===
+
+interface UploadDocumentsResponse {
+  status: string
+  files: string[]
+  task_id: string
+  study_topic_id: string
+  study_topic_name: string
+}
+
+interface ProcessWebpageResponse {
+  status: string
+  url: string
+  task_id: string
+  study_topic_id: string
+  study_topic_name: string
+  content_id: string
+}
+
+interface ProcessYouTubeResponse {
+  status: string
+  task_id: string
+  url: string
+  study_topic_id: string
+  study_topic_name: string
+  content_id: string
+  message: string
+}
+
+interface TaskStatusResponse {
+  task_id: string
+  status: 'processing' | 'done' | 'failed'
+  result?: any
+  processing_time_seconds?: number
+}
+
 export type {
   StudyTopic,
   CreateStudyTopicRequest,
   CreateStudyTopicResponse,
   StudyTopicsListResponse,
-  QueryResponse
+  QueryResponse,
+  ContentItem,
+  StudyTopicContentResponse,
+  StudyTopicSummaryResponse,
+  UploadDocumentsResponse,
+  ProcessWebpageResponse,
+  ProcessYouTubeResponse,
+  TaskStatusResponse
 }

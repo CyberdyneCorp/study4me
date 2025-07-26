@@ -17,11 +17,21 @@
 -->
 
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte'
+  import { createEventDispatcher, onDestroy } from 'svelte'
+  import { apiService } from '../services/api'
+  import { webSocketService } from '../services/websocket'
+  import type { 
+    UploadDocumentsResponse, 
+    ProcessWebpageResponse, 
+    ProcessYouTubeResponse,
+    TaskStatusResponse 
+  } from '../services/api'
+  import type { TaskUpdate } from '../services/websocket'
   
   // Props passed from parent component
   export let isOpen = false          // Controls modal visibility
   export let topicTitle = ''         // Title of the topic being managed
+  export let studyTopicId = ''       // UUID of the study topic for backend operations
   
   // Event dispatcher for parent communication
   const dispatch = createEventDispatcher()
@@ -37,14 +47,158 @@
   let isDragging = false             // Flag for drag-over visual feedback
   
   // File management state
-  let uploadedFiles: Array<{name: string, size: number, type: string}> = []  // List of uploaded files
+  let selectedFiles: File[] = []     // Actual File objects for upload
+  let uploadedFiles: Array<{name: string, size: number, type: string}> = []  // Display list of files
   
+  // Processing state management
+  interface ProcessingTask {
+    id: string
+    type: 'upload' | 'webpage' | 'youtube'
+    name: string
+    status: 'pending' | 'processing' | 'done' | 'failed'
+    progress?: number
+    message?: string
+    error?: string
+    createdAt: Date
+  }
+  
+  let processingTasks: ProcessingTask[] = []
+  let isProcessing = false
+  let processingError = ''
+  
+  // WebSocket subscriptions tracking
+  let wsUnsubscribeFunctions: (() => void)[] = []
+  
+  // Cleanup WebSocket subscriptions on component destroy
+  onDestroy(() => {
+    wsUnsubscribeFunctions.forEach(unsubscribe => unsubscribe())
+  })
+
   /**
    * Closes the sources modal and notifies parent component
    * Resets any temporary state when modal closes
    */
   function handleClose() {
+    // Clean up WebSocket subscriptions
+    wsUnsubscribeFunctions.forEach(unsubscribe => unsubscribe())
+    wsUnsubscribeFunctions = []
+    
+    // Reset state
+    resetModalState()
+    
     dispatch('close')
+  }
+
+  /**
+   * Reset all modal state to initial values
+   */
+  function resetModalState() {
+    activeTab = 'upload'
+    websiteUrl = ''
+    youtubeUrl = ''
+    isDragging = false
+    selectedFiles = []
+    uploadedFiles = []
+    processingTasks = []
+    isProcessing = false
+    processingError = ''
+  }
+
+  /**
+   * Create a new processing task and subscribe to WebSocket updates or start polling
+   */
+  function createProcessingTask(
+    taskId: string, 
+    type: 'upload' | 'webpage' | 'youtube', 
+    name: string
+  ): ProcessingTask {
+    const task: ProcessingTask = {
+      id: taskId,
+      type,
+      name,
+      status: 'processing', // Start as processing since we just initiated it
+      createdAt: new Date()
+    }
+    
+    processingTasks = [...processingTasks, task]
+    
+    // Try WebSocket first, fall back to polling if WebSocket is not available
+    if (webSocketService.isConnected) {
+      // Subscribe to WebSocket updates for this task
+      const unsubscribe = webSocketService.subscribeToTask(taskId, (update: TaskUpdate) => {
+        updateProcessingTask(taskId, update)
+      })
+      wsUnsubscribeFunctions.push(unsubscribe)
+    } else {
+      // Fall back to polling the task status
+      startTaskPolling(taskId)
+    }
+    
+    return task
+  }
+
+  /**
+   * Poll task status when WebSocket is not available
+   */
+  async function startTaskPolling(taskId: string) {
+    const maxAttempts = 60 // Poll for up to 5 minutes (60 * 5s = 300s)
+    let attempts = 0
+    
+    const poll = async () => {
+      try {
+        const status = await apiService.getTaskStatus(taskId)
+        
+        updateProcessingTask(taskId, {
+          task_id: taskId,
+          status: status.status,
+          result: status.result
+        })
+        
+        // Continue polling if still processing and haven't exceeded max attempts
+        if (status.status === 'processing' && attempts < maxAttempts) {
+          attempts++
+          setTimeout(poll, 5000) // Poll every 5 seconds
+        }
+      } catch (error) {
+        console.error('Failed to poll task status:', error)
+        // Stop polling on error
+        updateProcessingTask(taskId, {
+          task_id: taskId,
+          status: 'failed',
+          error: 'Failed to get task status'
+        })
+      }
+    }
+    
+    // Start polling after a short delay
+    setTimeout(poll, 2000)
+  }
+
+  /**
+   * Update a processing task based on WebSocket update
+   */
+  function updateProcessingTask(taskId: string, update: TaskUpdate) {
+    processingTasks = processingTasks.map(task => {
+      if (task.id === taskId) {
+        return {
+          ...task,
+          status: update.status,
+          progress: update.progress,
+          message: update.message,
+          error: update.error
+        }
+      }
+      return task
+    })
+    
+    // Update global processing state
+    const hasProcessingTasks = processingTasks.some(task => task.status === 'processing')
+    isProcessing = hasProcessingTasks
+    
+    // If task completed successfully, dispatch event to refresh content
+    if (update.status === 'done') {
+      dispatch('contentAdded', { taskId, result: update.result })
+    }
   }
   
   /**
@@ -115,7 +269,23 @@
    * @param files - Array of File objects to process
    */
   function processFiles(files: File[]) {
-    const newFiles = files.map(file => ({
+    // Filter files by supported types
+    const supportedExtensions = ['.pdf', '.docx', '.xls', '.xlsx', '.txt', '.md', '.mp3', '.wav', '.m4a']
+    const validFiles = files.filter(file => {
+      const extension = '.' + file.name.split('.').pop()?.toLowerCase()
+      return supportedExtensions.includes(extension)
+    })
+    
+    if (validFiles.length !== files.length) {
+      processingError = `${files.length - validFiles.length} file(s) skipped due to unsupported format`
+      setTimeout(() => processingError = '', 5000)
+    }
+    
+    // Add to selected files for upload
+    selectedFiles = [...selectedFiles, ...validFiles]
+    
+    // Add to display list
+    const newFiles = validFiles.map(file => ({
       name: file.name,              // Original filename
       size: file.size,              // File size in bytes
       type: file.type || 'Unknown'  // MIME type or fallback
@@ -128,7 +298,49 @@
    * @param index - Index of the file to remove from the array
    */
   function removeFile(index: number) {
+    selectedFiles = selectedFiles.filter((_, i) => i !== index)
     uploadedFiles = uploadedFiles.filter((_, i) => i !== index)
+  }
+
+  /**
+   * Upload selected files to the backend
+   */
+  async function uploadFiles() {
+    console.log('Upload files called:', {
+      selectedFilesCount: selectedFiles.length,
+      studyTopicId: studyTopicId,
+      studyTopicIdType: typeof studyTopicId
+    })
+    
+    if (selectedFiles.length === 0) {
+      processingError = 'No files selected'
+      return
+    }
+    
+    if (!studyTopicId || studyTopicId.trim() === '') {
+      processingError = 'Study topic ID not available. Please close and reopen the modal.'
+      return
+    }
+
+    try {
+      processingError = '' // Clear any previous errors
+      const response = await apiService.uploadDocuments(selectedFiles, studyTopicId)
+      
+      // Create processing task for tracking
+      createProcessingTask(
+        response.task_id, 
+        'upload', 
+        `Uploading ${response.files.length} file(s)`
+      )
+      
+      // Clear selected files after successful upload initiation
+      selectedFiles = []
+      uploadedFiles = []
+      
+    } catch (error) {
+      console.error('Upload failed:', error)
+      processingError = error instanceof Error ? error.message : 'Upload failed'
+    }
   }
   
   /**
@@ -146,25 +358,69 @@
   
   /**
    * Handles website URL submission for scraping
-   * TODO: Implement actual website scraping functionality
-   * Currently logs the URL and clears the input
    */
-  function handleWebsiteSubmit() {
-    if (websiteUrl.trim()) {
-      console.log('Scraping website:', websiteUrl)  // TODO: Replace with actual API call
-      websiteUrl = ''  // Clear input after submission
+  async function handleWebsiteSubmit() {
+    if (!websiteUrl.trim() || !studyTopicId) {
+      processingError = 'Please enter a valid URL and ensure study topic is available'
+      return
+    }
+
+    try {
+      const response = await apiService.processWebpage(websiteUrl.trim(), studyTopicId)
+      
+      // Create processing task for tracking
+      createProcessingTask(
+        response.task_id, 
+        'webpage', 
+        `Processing: ${websiteUrl.trim()}`
+      )
+      
+      // Clear input after successful submission
+      websiteUrl = ''
+      processingError = ''
+    } catch (error) {
+      console.error('Website processing failed:', error)
+      processingError = error instanceof Error ? error.message : 'Website processing failed'
     }
   }
   
   /**
    * Handles YouTube URL submission for video processing
-   * TODO: Implement actual YouTube transcript extraction
-   * Currently logs the URL and clears the input
    */
-  function handleYouTubeSubmit() {
-    if (youtubeUrl.trim()) {
-      console.log('Processing YouTube video:', youtubeUrl)  // TODO: Replace with actual API call
-      youtubeUrl = ''  // Clear input after submission
+  async function handleYouTubeSubmit() {
+    console.log('YouTube submit called:', {
+      youtubeUrl: youtubeUrl,
+      studyTopicId: studyTopicId,
+      studyTopicIdType: typeof studyTopicId
+    })
+    
+    if (!youtubeUrl.trim()) {
+      processingError = 'Please enter a valid YouTube URL'
+      return
+    }
+    
+    if (!studyTopicId || studyTopicId.trim() === '') {
+      processingError = 'Study topic ID not available. Please close and reopen the modal.'
+      return
+    }
+
+    try {
+      processingError = '' // Clear any previous errors
+      const response = await apiService.processYouTubeVideo(youtubeUrl.trim(), studyTopicId)
+      
+      // Create processing task for tracking
+      createProcessingTask(
+        response.task_id, 
+        'youtube', 
+        `Processing: ${youtubeUrl.trim()}`
+      )
+      
+      // Clear input after successful submission
+      youtubeUrl = ''
+      
+    } catch (error) {
+      console.error('YouTube processing failed:', error)
+      processingError = error instanceof Error ? error.message : 'YouTube processing failed'
     }
   }
 </script>
@@ -216,6 +472,11 @@
             Add sources: {topicTitle}
           </h2>
           <p class="text-sm text-gray-600">Upload files, scrape websites, or add YouTube videos to enhance your topic</p>
+          {#if !studyTopicId}
+            <p class="text-xs text-red-600 mt-1">⚠️ Study Topic ID missing</p>
+          {:else}
+            <p class="text-xs text-green-600 mt-1">✓ Topic ID: {studyTopicId.slice(0, 8)}...</p>
+          {/if}
         </div>
         
         <!-- Close button -->
@@ -322,15 +583,15 @@
               />
               
               <!-- 
-                Uploaded Files List
-                - Shows only when files have been uploaded
+                Selected Files List
+                - Shows only when files have been selected
                 - Scrollable list with file details and remove buttons
                 - Each file shows name, size, and type information
               -->
               {#if uploadedFiles.length > 0}
                 <div class="border-2 border-black bg-white p-4">
                   <h4 class="font-bold font-mono mb-4">
-                    Uploaded Files ({uploadedFiles.length})
+                    Selected Files ({uploadedFiles.length})
                   </h4>
                   
                   <!-- Scrollable file list -->
@@ -348,11 +609,23 @@
                         <button 
                           class="bg-brand-red text-white border border-black rounded px-2 py-1 cursor-pointer text-xs hover:bg-opacity-90"
                           on:click={() => removeFile(index)}
+                          disabled={isProcessing}
                         >
                           Remove
                         </button>
                       </div>
                     {/each}
+                  </div>
+                  
+                  <!-- Upload button -->
+                  <div class="mt-4 pt-4 border-t border-gray-300">
+                    <button 
+                      class="w-full bg-brand-blue text-white border-2 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer hover:bg-opacity-90 {isProcessing ? 'opacity-50 cursor-not-allowed' : ''}"
+                      on:click={uploadFiles}
+                      disabled={isProcessing || uploadedFiles.length === 0}
+                    >
+                      {isProcessing ? 'Processing...' : `Upload ${uploadedFiles.length} File(s)`}
+                    </button>
                   </div>
                 </div>
               {/if}
@@ -384,11 +657,13 @@
                     placeholder="https://example.com"
                     class="flex-1 p-2 border-2 border-black font-inter text-sm"
                   />
-                  <!-- Scrape button -->\n                  <button 
-                    class="bg-brand-pink text-white border-2 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer text-sm hover:bg-opacity-90"
+                  <!-- Scrape button -->
+                  <button 
+                    class="bg-brand-pink text-white border-2 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer text-sm hover:bg-opacity-90 {isProcessing ? 'opacity-50 cursor-not-allowed' : ''}"
                     on:click={handleWebsiteSubmit}
+                    disabled={isProcessing || !websiteUrl.trim()}
                   >
-                    Scrape
+                    {isProcessing ? 'Processing...' : 'Scrape'}
                   </button>
                 </div>
               </div>
@@ -449,10 +724,11 @@
                   />
                   <!-- Add video button -->
                   <button 
-                    class="bg-brand-pink text-white border-2 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer text-sm hover:bg-opacity-90"
+                    class="bg-brand-pink text-white border-2 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer text-sm hover:bg-opacity-90 {isProcessing ? 'opacity-50 cursor-not-allowed' : ''}"
                     on:click={handleYouTubeSubmit}
+                    disabled={isProcessing || !youtubeUrl.trim()}
                   >
-                    Add Video
+                    {isProcessing ? 'Processing...' : 'Add Video'}
                   </button>
                 </div>
               </div>
@@ -494,6 +770,55 @@
           {/if}
         </div>
         
+        <!-- Processing Tasks Status -->
+        {#if processingTasks.length > 0}
+          <div class="p-4 border-t-2 border-black bg-gray-50">
+            <h4 class="font-bold font-mono mb-3 text-sm">
+              Processing Tasks ({processingTasks.length})
+            </h4>
+            
+            <div class="flex flex-col gap-2 max-h-32 overflow-y-auto">
+              {#each processingTasks as task}
+                <div class="flex items-center justify-between p-2 border border-black bg-white text-xs">
+                  <!-- Task info -->
+                  <div class="flex-1">
+                    <div class="font-bold">{task.name}</div>
+                    {#if task.message}
+                      <div class="text-gray-600">{task.message}</div>
+                    {/if}
+                    {#if task.error}
+                      <div class="text-red-600">Error: {task.error}</div>
+                    {/if}
+                  </div>
+                  
+                  <!-- Status indicator -->
+                  <div class="ml-2">
+                    {#if task.status === 'processing'}
+                      <div class="flex items-center gap-1">
+                        <div class="animate-spin w-3 h-3 border border-gray-400 border-t-transparent rounded-full"></div>
+                        <span class="text-blue-600">Processing</span>
+                      </div>
+                    {:else if task.status === 'done'}
+                      <span class="text-green-600">✓ Done</span>
+                    {:else if task.status === 'failed'}
+                      <span class="text-red-600">✗ Failed</span>
+                    {:else}
+                      <span class="text-gray-600">Pending</span>
+                    {/if}
+                  </div>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+        
+        <!-- Error Display -->
+        {#if processingError}
+          <div class="p-3 border-t-2 border-black bg-red-100 border-red-500 text-red-700 text-sm">
+            <strong>Error:</strong> {processingError}
+          </div>
+        {/if}
+        
         <!-- 
           Modal Footer
           - Fixed at bottom of modal
@@ -501,9 +826,13 @@
           - Cancel and Save options for user actions
         -->
         <div class="p-4 border-t-4 border-black bg-white flex justify-between items-center">
-          <!-- Source limit indicator -->
+          <!-- Processing status indicator -->
           <div class="text-sm text-gray-600">
-            Source limit: 79 / 300
+            {#if processingTasks.length > 0}
+              {processingTasks.filter(t => t.status === 'done').length} / {processingTasks.length} tasks completed
+            {:else}
+              Ready to add sources
+            {/if}
           </div>
           
           <!-- Action buttons -->
@@ -513,14 +842,14 @@
               class="bg-gray-50 text-black border-2 border-black rounded px-6 py-3 font-mono font-bold cursor-pointer hover:bg-gray-100"
               on:click={handleClose}
             >
-              Cancel
+              {isProcessing ? 'Close' : 'Cancel'}
             </button>
-            <!-- Save button -->
-            <!-- TODO: Implement actual save functionality -->
+            <!-- Done button -->
             <button 
               class="bg-brand-blue text-white border-2 border-black rounded px-6 py-3 font-mono font-bold cursor-pointer hover:bg-opacity-90"
+              on:click={handleClose}
             >
-              Save Sources
+              Done
             </button>
           </div>
         </div>

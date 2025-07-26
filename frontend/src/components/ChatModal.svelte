@@ -3,7 +3,7 @@
   
   This modal provides an AI-powered chat interface where users can:
   - Ask questions about their study topic using the dual query system
-  - View source materials in a sidebar
+  - View reference materials fetched from backend in a sidebar
   - Interact with Study4Me AI via LightRAG or ChatGPT+context
   - Access study session actions (podcast, mindmap, summarize)
   - Copy AI responses to clipboard
@@ -13,7 +13,7 @@
   - Dual query system support (LightRAG knowledge graphs or ChatGPT with context)
   - Auto-clearing chat history when modal opens for fresh conversations
   - Rich text formatting for AI responses (headers, bold, lists, code blocks)
-  - Source materials sidebar for reference
+  - Dynamic references sidebar loaded from backend with detailed metadata
   - Session actions for enhanced learning
   - Processing method and time display for AI responses
   - Copy to clipboard functionality for AI responses
@@ -23,6 +23,7 @@
   
   Backend Integration:
   - Uses GET /query endpoint for synchronous responses
+  - Uses GET /study-topics/{topic_id}/content endpoint for references
   - Supports study topic UUID-based queries
   - Handles both LightRAG and ChatGPT+context processing methods
   - Displays processing metadata (method, time) for transparency
@@ -32,13 +33,12 @@
   import { createEventDispatcher } from 'svelte'
   import Button from './Button.svelte'
   import { apiService } from '../services/api'
-  import type { QueryResponse } from '../services/api'
+  import type { QueryResponse, ContentItem, StudyTopicSummaryResponse } from '../services/api'
   
   // Props passed from parent component
   export let isOpen = false           // Controls modal visibility
   export let topicTitle = ''          // Title of the topic being studied
   export let studyTopicId = ''        // UUID of the study topic for backend queries
-  export let sources: Array<{id: string, title: string, type: string}> = []  // Available source materials
   
   // Event dispatcher for parent communication
   const dispatch = createEventDispatcher()
@@ -49,12 +49,83 @@
   let isLoading = false              // Loading state during AI response
   let errorMessage = ''              // Error message for failed queries
   let copiedMessageId: string | null = null  // Track which message was just copied
+  
+  // References state
+  let references: ContentItem[] = []
+  let isLoadingReferences = false
+  let referencesErrorMessage = ''
 
-  // Clear chat messages when modal opens
-  $: if (isOpen) {
+  // Summary modal state
+  let isSummaryModalOpen = false
+  let summaryData: StudyTopicSummaryResponse | null = null
+  let isLoadingSummary = false
+  let summaryErrorMessage = ''
+
+  // Load references when modal opens and study topic changes
+  $: if (isOpen && studyTopicId) {
+    loadReferences()
     chatMessages = []
     errorMessage = ''
     copiedMessageId = null
+  } else if (isOpen && !studyTopicId) {
+    chatMessages = []
+    errorMessage = ''
+    copiedMessageId = null
+    references = []
+  }
+
+  /**
+   * Loads references (content items) for the current study topic
+   */
+  async function loadReferences() {
+    if (!studyTopicId) return
+
+    isLoadingReferences = true
+    referencesErrorMessage = ''
+    
+    try {
+      const response = await apiService.getStudyTopicContent(studyTopicId)
+      references = response.content_items || []
+    } catch (error) {
+      console.error('Failed to load references:', error)
+      referencesErrorMessage = error instanceof Error ? error.message : 'Failed to load references'
+      references = []
+    } finally {
+      isLoadingReferences = false
+    }
+  }
+
+  /**
+   * Handles the summarize content button click
+   * Calls backend to generate AI summary of all study topic content
+   */
+  async function handleSummarizeContent() {
+    if (!studyTopicId) {
+      summaryErrorMessage = 'No study topic selected'
+      return
+    }
+
+    isLoadingSummary = true
+    summaryErrorMessage = ''
+    
+    try {
+      summaryData = await apiService.summarizeStudyTopicContent(studyTopicId)
+      isSummaryModalOpen = true
+    } catch (error) {
+      console.error('Failed to summarize content:', error)
+      summaryErrorMessage = error instanceof Error ? error.message : 'Failed to summarize content'
+    } finally {
+      isLoadingSummary = false
+    }
+  }
+
+  /**
+   * Closes the summary modal
+   */
+  function closeSummaryModal() {
+    isSummaryModalOpen = false
+    summaryData = null
+    summaryErrorMessage = ''
   }
 
   /**
@@ -300,39 +371,62 @@
       <div class="flex flex-1 overflow-hidden">
         
         <!-- 
-          Left Sidebar - Sources List
+          Left Sidebar - References List
           - 1/4 width with yellow background for visual distinction
-          - Shows all available source materials for the topic
-          - Scrollable if many sources are available
+          - Shows all available reference materials for the topic
+          - Scrollable if many references are available
         -->
         <div class="w-1/4 border-r-4 border-black p-4 overflow-y-auto bg-brand-yellow">
           <h3 class="text-lg font-bold mb-4 font-mono text-black">
-            Sources
+            References
           </h3>
           
-          <!-- Conditional rendering based on sources availability -->
-          {#if sources.length === 0}
-            <!-- Empty state when no sources are available -->
-            <p class="text-sm text-gray-600">No sources available</p>
+          <!-- Loading state -->
+          {#if isLoadingReferences}
+            <div class="text-center p-4">
+              <div class="text-sm text-gray-600">Loading references...</div>
+            </div>
+          <!-- Error state -->
+          {:else if referencesErrorMessage}
+            <div class="p-3 bg-red-100 border-2 border-red-500 text-red-700 text-sm mb-4">
+              <strong>Error:</strong> {referencesErrorMessage}
+            </div>
+          <!-- Empty state -->
+          {:else if references.length === 0}
+            <p class="text-sm text-gray-600">No references available</p>
           {:else}
-            <!-- List of available sources -->
+            <!-- List of available references -->
             <div class="flex flex-col gap-2">
-              {#each sources as source}
+              {#each references as reference}
                 <!-- 
-                  Individual source card
+                  Individual reference card
                   - White background with hover effects
-                  - Shows title and type with color transitions
+                  - Shows title, type, and metadata with color transitions
                   - Interactive hover state with blue background
                 -->
                 <div class="p-3 border-2 border-black bg-white cursor-pointer transition-all duration-300 hover:bg-brand-blue group">
-                  <!-- Source title with hover color change -->
-                  <div class="font-bold text-sm font-mono text-black group-hover:text-white transition-colors duration-300">
-                    {source.title}
+                  <!-- Reference title with hover color change -->
+                  <div class="font-bold text-sm font-mono text-black group-hover:text-white transition-colors duration-300 mb-1">
+                    {reference.title}
                   </div>
-                  <!-- Source type indicator -->
-                  <div class="text-xs text-gray-600 uppercase group-hover:text-white transition-colors duration-300">
-                    {source.type}
+                  <!-- Reference type indicator -->
+                  <div class="text-xs text-gray-600 uppercase group-hover:text-white transition-colors duration-300 mb-1">
+                    {reference.content_type}
                   </div>
+                  <!-- Reference metadata -->
+                  <div class="text-xs text-gray-500 group-hover:text-white transition-colors duration-300">
+                    {reference.content_length} chars • {reference.number_tokens} tokens
+                  </div>
+                  <!-- Source URL or file path if available -->
+                  {#if reference.source_url}
+                    <div class="text-xs text-blue-600 group-hover:text-white transition-colors duration-300 mt-1 truncate" title={reference.source_url}>
+                      🔗 {reference.source_url}
+                    </div>
+                  {:else if reference.file_path}
+                    <div class="text-xs text-green-600 group-hover:text-white transition-colors duration-300 mt-1 truncate" title={reference.file_path}>
+                      📄 {reference.file_path.split('/').pop()}
+                    </div>
+                  {/if}
                 </div>
               {/each}
             </div>
@@ -538,15 +632,105 @@
             </button>
             
             <!-- Summarize Content Button -->
-            <!-- TODO: Implement content summarization functionality -->
-            <button class="w-full h-12 p-3 border-2 border-black bg-brand-pink text-white cursor-pointer font-mono font-bold text-sm flex items-center justify-center gap-2 hover:bg-opacity-90">
-              <!-- Document/summary icon -->
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M3 3h18v18H3V3zm2 2v14h14V5H5zm2 2h10v2H7V7zm0 4h10v2H7v-2zm0 4h7v2H7v-2z"/>
-              </svg>
-              Summarize Content
+            <button 
+              class="w-full h-12 p-3 border-2 border-black bg-brand-pink text-white cursor-pointer font-mono font-bold text-sm flex items-center justify-center gap-2 hover:bg-opacity-90 {isLoadingSummary ? 'opacity-50 cursor-not-allowed' : ''}"
+              on:click={handleSummarizeContent}
+              disabled={isLoadingSummary || !studyTopicId}
+            >
+              <!-- Document/summary icon or loading spinner -->
+              {#if isLoadingSummary}
+                <div class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+              {:else}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 3h18v18H3V3zm2 2v14h14V5H5zm2 2h10v2H7V7zm0 4h10v2H7v-2zm0 4h7v2H7v-2z"/>
+                </svg>
+              {/if}
+              {isLoadingSummary ? 'Summarizing...' : 'Summarize Content'}
             </button>
+
+            <!-- Summary error message -->
+            {#if summaryErrorMessage}
+              <div class="p-2 bg-red-100 border-2 border-red-500 text-red-700 text-xs">
+                <strong>Error:</strong> {summaryErrorMessage}
+              </div>
+            {/if}
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Summary Modal -->
+{#if isSummaryModalOpen && summaryData}
+  <div 
+    class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-[70]"
+    on:click={(e) => e.target === e.currentTarget && closeSummaryModal()}
+    on:keydown={(e) => e.key === 'Escape' && closeSummaryModal()}
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="summary-modal-title"
+    tabindex="-1"
+  >
+    <div class="bg-white border-4 border-black w-full max-w-4xl max-h-[90vh] flex flex-col">
+      <!-- Summary Modal Header -->
+      <div class="flex justify-between items-center p-4 border-b-4 border-black bg-white">
+        <div>
+          <h2 id="summary-modal-title" class="text-xl font-bold font-mono text-black mb-1">
+            Content Summary
+          </h2>
+          <p class="text-sm text-gray-600">
+            AI-generated summary of {summaryData.topic_name}
+          </p>
+        </div>
+        <button 
+          class="bg-brand-pink text-white border-2 border-black rounded px-3 py-2 font-mono font-bold cursor-pointer text-lg hover:bg-opacity-90"
+          on:click={closeSummaryModal}
+          aria-label="Close summary modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- Summary Modal Body -->
+      <div class="flex-1 overflow-y-auto p-6">
+        <!-- Summary metadata -->
+        <div class="bg-gray-50 border-2 border-gray-300 p-4 mb-6 text-sm">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <span class="font-bold text-gray-700">Content Items:</span>
+              <div class="text-gray-600">{summaryData.content_items_processed}</div>
+            </div>
+            <div>
+              <span class="font-bold text-gray-700">Total Length:</span>
+              <div class="text-gray-600">{summaryData.total_content_length.toLocaleString()} chars</div>
+            </div>
+            <div>
+              <span class="font-bold text-gray-700">Summary Length:</span>
+              <div class="text-gray-600">{summaryData.summary_length.toLocaleString()} chars</div>
+            </div>
+            <div>
+              <span class="font-bold text-gray-700">Processing Time:</span>
+              <div class="text-gray-600">{summaryData.processing_time_seconds}s</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary content -->
+        <div class="prose max-w-none">
+          <div class="text-gray-800 leading-relaxed">
+            {@html formatResponseText(summaryData.summary)}
+          </div>
+        </div>
+
+        <!-- Copy summary button -->
+        <div class="mt-6 pt-4 border-t-2 border-gray-200">
+          <button 
+            class="bg-brand-blue text-white border-2 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer hover:bg-opacity-90"
+            on:click={() => copyToClipboard(summaryData.summary, 'summary')}
+          >
+            {copiedMessageId === 'summary' ? 'Copied!' : 'Copy Summary'}
+          </button>
         </div>
       </div>
     </div>
