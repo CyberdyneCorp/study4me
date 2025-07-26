@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 
 import networkx as nx
 import matplotlib.pyplot as plt
-from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Body, Request, Depends, BackgroundTasks, Form
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Body, Request, Depends, BackgroundTasks, Form, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -37,6 +37,10 @@ from youtube_service import get_youtube_transcript, batch_youtube_transcripts, B
 # Handle multiple tasks statuses
 TASK_STATUS = {}  # Ex: {task_id: "processing" | "done" | "failed"}
 TASK_LOCK = Lock()
+
+# WebSocket connection management
+WEBSOCKET_CONNECTIONS = set()  # Active WebSocket connections
+WEBSOCKET_LOCK = Lock()
 
 # Global shutdown flag
 SHUTDOWN_EVENT = asyncio.Event()
@@ -337,7 +341,98 @@ async def get_topic_rag(study_topic_id: str) -> Optional[LightRAG]:
         logger.error(f"❌ Failed to create LightRAG for topic {study_topic_id}: {str(e)}")
         return None
 
+# === WebSocket Functions ===
+
+async def broadcast_to_websockets(message: dict):
+    """Broadcast a message to all connected WebSocket clients."""
+    if not WEBSOCKET_CONNECTIONS:
+        return
+    
+    # Create a list to track connections to remove
+    disconnected = []
+    
+    for websocket in WEBSOCKET_CONNECTIONS.copy():
+        try:
+            await websocket.send_text(json.dumps(message))
+        except Exception as e:
+            logger.warning(f"Failed to send message to WebSocket: {e}")
+            disconnected.append(websocket)
+    
+    # Remove disconnected WebSockets
+    with WEBSOCKET_LOCK:
+        for ws in disconnected:
+            WEBSOCKET_CONNECTIONS.discard(ws)
+
+async def send_task_update(task_id: str, status: str, message: str = None, progress: int = None, result: dict = None, error: str = None):
+    """Send a task update to all connected WebSocket clients."""
+    update = {
+        "task_id": task_id,
+        "status": status,
+        "message": message,
+        "progress": progress,
+        "result": result,
+        "error": error,
+        "timestamp": time.time()
+    }
+    await broadcast_to_websockets(update)
+
+def update_task_status(task_id: str, status: str, message: str = None, result: dict = None, error: str = None):
+    """Update task status and send WebSocket notification."""
+    with TASK_LOCK:
+        TASK_STATUS[task_id] = status
+    
+    # Send WebSocket notification asynchronously
+    asyncio.create_task(send_task_update(task_id, status, message, result=result, error=error))
+
 # === Routes ===
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time updates."""
+    await websocket.accept()
+    
+    with WEBSOCKET_LOCK:
+        WEBSOCKET_CONNECTIONS.add(websocket)
+    
+    logger.info(f"✅ WebSocket client connected. Total connections: {len(WEBSOCKET_CONNECTIONS)}")
+    
+    try:
+        # Send welcome message
+        await websocket.send_text(json.dumps({
+            "type": "welcome",
+            "message": "Connected to Study4Me WebSocket",
+            "timestamp": time.time()
+        }))
+        
+        # Keep the connection alive and handle incoming messages
+        while True:
+            try:
+                # Wait for messages from client (optional)
+                data = await websocket.receive_text()
+                logger.info(f"Received WebSocket message: {data}")
+                
+                # Echo back for debugging
+                await websocket.send_text(json.dumps({
+                    "type": "echo",
+                    "message": f"Received: {data}",
+                    "timestamp": time.time()
+                }))
+                
+            except WebSocketDisconnect:
+                break
+            except Exception as e:
+                logger.error(f"WebSocket error: {e}")
+                break
+                
+    except WebSocketDisconnect:
+        logger.info("WebSocket client disconnected")
+    except Exception as e:
+        logger.error(f"WebSocket connection error: {e}")
+    finally:
+        # Remove from active connections
+        with WEBSOCKET_LOCK:
+            WEBSOCKET_CONNECTIONS.discard(websocket)
+        logger.info(f"🔌 WebSocket client removed. Total connections: {len(WEBSOCKET_CONNECTIONS)}")
 
 @app.get("/", tags=["Debug"])
 def root():
@@ -348,6 +443,56 @@ def root():
 def readiness():
     """Kubernetes readiness probe endpoint."""
     return {"status": "ready", "message": "Service is ready to accept requests"}
+
+@app.post("/debug/websocket-notification", tags=["Debug"])
+async def send_debug_websocket_notification(
+    request: dict = Body(...)
+):
+    """Debug endpoint to send WebSocket notifications to connected clients."""
+    
+    message = request.get("message", "Test notification")
+    notification_type = request.get("notification_type", "debug")
+    target_client = request.get("target_client", None)
+    
+    if not WEBSOCKET_CONNECTIONS:
+        return {
+            "status": "no_connections",
+            "message": "No WebSocket clients connected",
+            "total_connections": 0
+        }
+    
+    notification = {
+        "type": notification_type,
+        "message": message,
+        "target_client": target_client,
+        "timestamp": time.time(),
+        "from": "debug_endpoint"
+    }
+    
+    try:
+        await broadcast_to_websockets(notification)
+        return {
+            "status": "sent",
+            "message": f"Notification sent to {len(WEBSOCKET_CONNECTIONS)} client(s)",
+            "total_connections": len(WEBSOCKET_CONNECTIONS),
+            "notification": notification
+        }
+    except Exception as e:
+        logger.error(f"Failed to send debug notification: {e}")
+        return {
+            "status": "error",
+            "message": f"Failed to send notification: {str(e)}",
+            "total_connections": len(WEBSOCKET_CONNECTIONS)
+        }
+
+@app.get("/debug/websocket-status", tags=["Debug"])
+def get_websocket_status():
+    """Get current WebSocket connection status."""
+    return {
+        "total_connections": len(WEBSOCKET_CONNECTIONS),
+        "connections_active": len(WEBSOCKET_CONNECTIONS) > 0,
+        "timestamp": time.time()
+    }
 
 @app.post("/documents/upload", tags=["Knowledge Upload"])
 async def upload_documents(

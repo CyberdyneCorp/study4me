@@ -6,6 +6,8 @@
  * and YouTube video processing.
  */
 
+import { notificationService } from './notifications'
+
 interface TaskUpdate {
   task_id: string
   status: 'processing' | 'done' | 'failed'
@@ -66,10 +68,23 @@ class WebSocketService {
         
         this.ws.onmessage = (event) => {
           try {
-            const update: TaskUpdate = JSON.parse(event.data)
-            this.handleTaskUpdate(update)
+            const data = JSON.parse(event.data)
+            
+            // Send to notification service for debug display
+            notificationService.handleWebSocketMessage(data)
+            
+            // Handle as task update if it has task_id
+            if (data.task_id) {
+              this.handleTaskUpdate(data as TaskUpdate)
+            }
           } catch (error) {
             console.error('Failed to parse WebSocket message:', error)
+            notificationService.addNotification({
+              type: 'error',
+              message: `Failed to parse WebSocket message: ${error}`,
+              timestamp: Date.now(),
+              from: 'websocket_service'
+            })
           }
         }
         

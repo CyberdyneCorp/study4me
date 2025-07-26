@@ -22,6 +22,7 @@
   import Navbar from './components/Navbar.svelte'       // Top navigation bar
   import Dashboard from './pages/Dashboard.svelte'     // Main dashboard page
   import WalletModal from './components/WalletModal.svelte'  // Wallet connection modal
+  import NotificationDisplay from './components/NotificationDisplay.svelte'  // WebSocket debug notifications
   
   // Store imports for global state management
   import { uiStore, uiActions } from './stores/uiStore'
@@ -92,5 +93,13 @@
   on:close={handleWalletModalClose}
   on:connect={handleWalletConnect}
 />
+
+<!--
+  WebSocket Debug Notifications
+  - Displays real-time WebSocket messages and debug information
+  - Fixed position in bottom-right corner
+  - Collapsible interface for development debugging
+-->
+<NotificationDisplay />
 
 <!-- End of main application template -->
