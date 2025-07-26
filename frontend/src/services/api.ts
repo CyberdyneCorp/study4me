@@ -84,6 +84,21 @@ interface StudyTopicSummaryResponse {
   generated_at: number
 }
 
+interface StudyTopicMindmapResponse {
+  topic_id: string
+  topic_name: string
+  topic_description: string
+  mindmap: string
+  content_items_processed: number
+  total_content_length: number
+  total_content_tokens: number
+  mindmap_length: number
+  processing_time_seconds: number
+  total_time_seconds: number
+  generated_at: number
+  cached: boolean
+}
+
 class ApiService {
   private async request<T>(
     endpoint: string,
@@ -163,6 +178,11 @@ class ApiService {
   async summarizeStudyTopicContent(topicId: string): Promise<StudyTopicSummaryResponse> {
     const response = await this.request<StudyTopicSummaryResponse>(`/study-topics/${topicId}/summarize`)
     return response as unknown as StudyTopicSummaryResponse
+  }
+
+  async generateStudyTopicMindmap(topicId: string): Promise<StudyTopicMindmapResponse> {
+    const response = await this.request<StudyTopicMindmapResponse>(`/study-topics/${topicId}/mindmap`)
+    return response as unknown as StudyTopicMindmapResponse
   }
 
   // === Knowledge Upload Methods ===
@@ -341,6 +361,7 @@ export type {
   ContentItem,
   StudyTopicContentResponse,
   StudyTopicSummaryResponse,
+  StudyTopicMindmapResponse,
   UploadDocumentsResponse,
   ProcessWebpageResponse,
   ProcessYouTubeResponse,

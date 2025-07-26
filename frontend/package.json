@@ -30,6 +30,7 @@
     "@reown/appkit-adapter-wagmi": "^1.7.16",
     "@web3auth/base": "^9.7.0",
     "@web3auth/modal": "^10.0.7",
+    "mermaid": "^11.9.0",
     "svelte-spa-router": "^4.0.1",
     "viem": "^2.33.0",
     "vite-plugin-node-polyfills": "^0.24.0",

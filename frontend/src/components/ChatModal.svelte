@@ -30,10 +30,11 @@
 -->
 
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte'
+  import { createEventDispatcher, onMount } from 'svelte'
   import Button from './Button.svelte'
   import { apiService } from '../services/api'
-  import type { QueryResponse, ContentItem, StudyTopicSummaryResponse } from '../services/api'
+  import type { QueryResponse, ContentItem, StudyTopicSummaryResponse, StudyTopicMindmapResponse } from '../services/api'
+  import mermaid from 'mermaid'
   
   // Props passed from parent component
   export let isOpen = false           // Controls modal visibility
@@ -60,6 +61,30 @@
   let summaryData: StudyTopicSummaryResponse | null = null
   let isLoadingSummary = false
   let summaryErrorMessage = ''
+
+  // Mindmap modal state
+  let isMindmapModalOpen = false
+  let mindmapData: StudyTopicMindmapResponse | null = null
+  let isLoadingMindmap = false
+  let mindmapErrorMessage = ''
+
+  // Pan and zoom state for mindmap
+  let mindmapScale = 1
+  let mindmapTranslateX = 0
+  let mindmapTranslateY = 0
+  let isDragging = false
+  let lastMouseX = 0
+  let lastMouseY = 0
+
+  // Initialize Mermaid on component mount
+  onMount(() => {
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'default',
+      securityLevel: 'loose',
+      fontFamily: 'Arial, sans-serif'
+    })
+  })
 
   // Load references when modal opens and study topic changes
   $: if (isOpen && studyTopicId) {
@@ -126,6 +151,171 @@
     isSummaryModalOpen = false
     summaryData = null
     summaryErrorMessage = ''
+  }
+
+  /**
+   * Handles the generate mindmap button click
+   * Calls backend to generate Mermaid mindmap code of all study topic content
+   */
+  async function handleGenerateMindmap() {
+    if (!studyTopicId) {
+      mindmapErrorMessage = 'No study topic selected'
+      return
+    }
+
+    isLoadingMindmap = true
+    mindmapErrorMessage = ''
+    
+    try {
+      mindmapData = await apiService.generateStudyTopicMindmap(studyTopicId)
+      isMindmapModalOpen = true
+      
+      // Wait a bit for the modal to render, then render the mindmap
+      setTimeout(() => {
+        renderMindmap()
+      }, 100)
+    } catch (error) {
+      console.error('Failed to generate mindmap:', error)
+      mindmapErrorMessage = error instanceof Error ? error.message : 'Failed to generate mindmap'
+    } finally {
+      isLoadingMindmap = false
+    }
+  }
+
+  /**
+   * Renders the Mermaid mindmap in the designated container
+   */
+  async function renderMindmap() {
+    if (!mindmapData?.mindmap) return
+    
+    const mindmapContainer = document.getElementById('mindmap-container')
+    if (!mindmapContainer) return
+
+    try {
+      // Clear the container
+      mindmapContainer.innerHTML = ''
+      
+      // Generate a unique ID for this mindmap
+      const mindmapId = `mindmap-${Date.now()}`
+      
+      // Parse and render the mindmap
+      const { svg } = await mermaid.render(mindmapId, mindmapData.mindmap)
+      mindmapContainer.innerHTML = svg
+    } catch (error) {
+      console.error('Failed to render mindmap:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      mindmapContainer.innerHTML = `<div class="text-red-600 p-4">Failed to render mindmap: ${errorMessage}</div>`
+    }
+  }
+
+  /**
+   * Closes the mindmap modal
+   */
+  function closeMindmapModal() {
+    isMindmapModalOpen = false
+    mindmapData = null
+    mindmapErrorMessage = ''
+    // Reset pan and zoom state
+    mindmapScale = 1
+    mindmapTranslateX = 0
+    mindmapTranslateY = 0
+    isDragging = false
+  }
+
+  /**
+   * Handles mouse wheel zoom on mindmap
+   */
+  function handleMindmapWheel(event: WheelEvent) {
+    event.preventDefault()
+    
+    const container = event.currentTarget as HTMLElement
+    const rect = container.getBoundingClientRect()
+    
+    // Calculate mouse position relative to container
+    const mouseX = event.clientX - rect.left
+    const mouseY = event.clientY - rect.top
+    
+    // Calculate zoom
+    const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1
+    const newScale = Math.max(0.1, Math.min(5, mindmapScale * zoomFactor))
+    
+    // Calculate the point to zoom towards (mouse position relative to current transform)
+    const zoomPointX = (mouseX - mindmapTranslateX) / mindmapScale
+    const zoomPointY = (mouseY - mindmapTranslateY) / mindmapScale
+    
+    // Update scale
+    mindmapScale = newScale
+    
+    // Adjust translation to keep the zoom point under the mouse
+    mindmapTranslateX = mouseX - zoomPointX * newScale
+    mindmapTranslateY = mouseY - zoomPointY * newScale
+  }
+
+  /**
+   * Handles mouse down for panning
+   */
+  function handleMindmapMouseDown(event: MouseEvent) {
+    isDragging = true
+    lastMouseX = event.clientX
+    lastMouseY = event.clientY
+    
+    // Prevent text selection during drag
+    event.preventDefault()
+  }
+
+  /**
+   * Handles mouse move for panning
+   */
+  function handleMindmapMouseMove(event: MouseEvent) {
+    if (!isDragging) return
+    
+    const deltaX = event.clientX - lastMouseX
+    const deltaY = event.clientY - lastMouseY
+    
+    mindmapTranslateX += deltaX
+    mindmapTranslateY += deltaY
+    
+    lastMouseX = event.clientX
+    lastMouseY = event.clientY
+  }
+
+  /**
+   * Handles mouse up to stop panning
+   */
+  function handleMindmapMouseUp() {
+    isDragging = false
+  }
+
+  /**
+   * Resets mindmap zoom and pan to default
+   */
+  function resetMindmapView() {
+    mindmapScale = 1
+    mindmapTranslateX = 0
+    mindmapTranslateY = 0
+  }
+
+  /**
+   * Fits mindmap to container size
+   */
+  function fitMindmapToContainer() {
+    const container = document.getElementById('mindmap-container')
+    const svg = container?.querySelector('svg')
+    
+    if (!container || !svg) return
+    
+    const containerRect = container.getBoundingClientRect()
+    const svgRect = svg.getBoundingClientRect()
+    
+    // Calculate scale to fit content
+    const scaleX = (containerRect.width - 40) / svg.viewBox.baseVal.width
+    const scaleY = (containerRect.height - 40) / svg.viewBox.baseVal.height
+    const newScale = Math.min(scaleX, scaleY, 1) // Don't scale up beyond 100%
+    
+    // Center the mindmap
+    mindmapScale = newScale
+    mindmapTranslateX = (containerRect.width - svg.viewBox.baseVal.width * newScale) / 2
+    mindmapTranslateY = (containerRect.height - svg.viewBox.baseVal.height * newScale) / 2
   }
 
   /**
@@ -614,21 +804,28 @@
             </button>
             
             <!-- Create Mindmap Button -->
-            <!-- TODO: Implement mindmap generation functionality -->
-            <button class="w-full h-12 p-3 border-2 border-black bg-brand-pink text-white cursor-pointer font-mono font-bold text-sm flex items-center justify-center gap-2 hover:bg-opacity-90">
-              <!-- Network/mindmap icon -->
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="9" cy="9" r="2"/>
-                <circle cx="15" cy="15" r="2"/>
-                <circle cx="9" cy="15" r="2"/>
-                <circle cx="15" cy="9" r="2"/>
-                <path d="M9 7v4m0 0v4m0-4h6m-6 0H3m6-6h6m-6 6v4"/>
-                <line x1="7" y1="9" x2="17" y2="9"/>
-                <line x1="9" y1="7" x2="9" y2="17"/>
-                <line x1="15" y1="7" x2="15" y2="17"/>
-                <line x1="7" y1="15" x2="17" y2="15"/>
-              </svg>
-              Create Mindmap
+            <button 
+              class="w-full h-12 p-3 border-2 border-black bg-brand-pink text-white cursor-pointer font-mono font-bold text-sm flex items-center justify-center gap-2 hover:bg-opacity-90 {isLoadingMindmap ? 'opacity-50 cursor-not-allowed' : ''}"
+              on:click={handleGenerateMindmap}
+              disabled={isLoadingMindmap || !studyTopicId}
+            >
+              <!-- Network/mindmap icon or loading spinner -->
+              {#if isLoadingMindmap}
+                <div class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+              {:else}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="9" cy="9" r="2"/>
+                  <circle cx="15" cy="15" r="2"/>
+                  <circle cx="9" cy="15" r="2"/>
+                  <circle cx="15" cy="9" r="2"/>
+                  <path d="M9 7v4m0 0v4m0-4h6m-6 0H3m6-6h6m-6 6v4"/>
+                  <line x1="7" y1="9" x2="17" y2="9"/>
+                  <line x1="9" y1="7" x2="9" y2="17"/>
+                  <line x1="15" y1="7" x2="15" y2="17"/>
+                  <line x1="7" y1="15" x2="17" y2="15"/>
+                </svg>
+              {/if}
+              {isLoadingMindmap ? 'Generating...' : 'Create Mindmap'}
             </button>
             
             <!-- Summarize Content Button -->
@@ -652,6 +849,13 @@
             {#if summaryErrorMessage}
               <div class="p-2 bg-red-100 border-2 border-red-500 text-red-700 text-xs">
                 <strong>Error:</strong> {summaryErrorMessage}
+              </div>
+            {/if}
+
+            <!-- Mindmap error message -->
+            {#if mindmapErrorMessage}
+              <div class="p-2 bg-red-100 border-2 border-red-500 text-red-700 text-xs">
+                <strong>Error:</strong> {mindmapErrorMessage}
               </div>
             {/if}
           </div>
@@ -727,10 +931,172 @@
         <div class="mt-6 pt-4 border-t-2 border-gray-200">
           <button 
             class="bg-brand-blue text-white border-2 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer hover:bg-opacity-90"
-            on:click={() => copyToClipboard(summaryData.summary, 'summary')}
+            on:click={() => summaryData && copyToClipboard(summaryData.summary, 'summary')}
           >
             {copiedMessageId === 'summary' ? 'Copied!' : 'Copy Summary'}
           </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Mindmap Modal -->
+{#if isMindmapModalOpen && mindmapData}
+  <div 
+    class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-[70]"
+    on:click={(e) => e.target === e.currentTarget && closeMindmapModal()}
+    on:keydown={(e) => e.key === 'Escape' && closeMindmapModal()}
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="mindmap-modal-title"
+    tabindex="-1"
+  >
+    <div class="bg-white border-4 border-black w-full max-w-6xl max-h-[95vh] flex flex-col">
+      <!-- Mindmap Modal Header -->
+      <div class="flex justify-between items-center p-4 border-b-4 border-black bg-white">
+        <div>
+          <h2 id="mindmap-modal-title" class="text-xl font-bold font-mono text-black mb-1">
+            Study Mindmap
+          </h2>
+          <p class="text-sm text-gray-600">
+            Visual knowledge map of {mindmapData.topic_name}
+          </p>
+        </div>
+        <button 
+          class="bg-brand-pink text-white border-2 border-black rounded px-3 py-2 font-mono font-bold cursor-pointer text-lg hover:bg-opacity-90"
+          on:click={closeMindmapModal}
+          aria-label="Close mindmap modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- Mindmap Modal Body -->
+      <div class="flex-1 overflow-y-auto">
+        <!-- Mindmap metadata -->
+        <div class="bg-gray-50 border-b-2 border-gray-300 p-4 text-sm">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <span class="font-bold text-gray-700">Content Items:</span>
+              <div class="text-gray-600">{mindmapData.content_items_processed}</div>
+            </div>
+            <div>
+              <span class="font-bold text-gray-700">Total Length:</span>
+              <div class="text-gray-600">{mindmapData.total_content_length.toLocaleString()} chars</div>
+            </div>
+            <div>
+              <span class="font-bold text-gray-700">Mindmap Size:</span>
+              <div class="text-gray-600">{mindmapData.mindmap_length.toLocaleString()} chars</div>
+            </div>
+            <div>
+              <span class="font-bold text-gray-700">Processing Time:</span>
+              <div class="text-gray-600">{mindmapData.processing_time_seconds}s</div>
+            </div>
+          </div>
+          {#if mindmapData.cached}
+            <div class="mt-2 text-blue-600 text-xs">
+              💾 Cached result - generated previously
+            </div>
+          {/if}
+        </div>
+
+        <!-- Mindmap visualization container -->
+        <div class="p-6 flex justify-center">
+          <div class="w-full max-w-full overflow-hidden">
+            <div 
+              id="mindmap-container" 
+              class="min-h-[400px] border-2 border-gray-300 rounded bg-white p-4 flex items-center justify-center relative overflow-hidden cursor-grab select-none"
+              class:cursor-grabbing={isDragging}
+              role="img"
+              aria-label="Interactive mindmap visualization - scroll to zoom, drag to pan"
+              on:wheel={handleMindmapWheel}
+              on:mousedown={handleMindmapMouseDown}
+              on:mousemove={handleMindmapMouseMove}
+              on:mouseup={handleMindmapMouseUp}
+              on:mouseleave={handleMindmapMouseUp}
+              style="transform: translate({mindmapTranslateX}px, {mindmapTranslateY}px) scale({mindmapScale}); transform-origin: 0 0;"
+            >
+              <div class="text-gray-500">Loading mindmap...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Zoom and Pan Controls -->
+        <div class="p-4 border-t-2 border-gray-200 bg-gray-50">
+          <div class="flex gap-3 justify-center mb-4">
+            <!-- Zoom controls -->
+            <div class="flex gap-2 items-center bg-white border-2 border-black rounded px-3 py-2">
+              <button 
+                class="w-8 h-8 bg-gray-200 hover:bg-gray-300 border border-gray-400 rounded text-center text-sm font-bold flex items-center justify-center"
+                on:click={() => mindmapScale = Math.max(0.1, mindmapScale * 0.8)}
+                title="Zoom out"
+              >
+                −
+              </button>
+              <span class="text-sm font-mono px-2 min-w-[4rem] text-center">
+                {Math.round(mindmapScale * 100)}%
+              </span>
+              <button 
+                class="w-8 h-8 bg-gray-200 hover:bg-gray-300 border border-gray-400 rounded text-center text-sm font-bold flex items-center justify-center"
+                on:click={() => mindmapScale = Math.min(5, mindmapScale * 1.25)}
+                title="Zoom in"
+              >
+                +
+              </button>
+            </div>
+
+            <!-- View controls -->
+            <button 
+              class="bg-yellow-500 text-white border-2 border-black rounded px-3 py-2 font-mono font-bold text-sm cursor-pointer hover:bg-opacity-90"
+              on:click={resetMindmapView}
+              title="Reset zoom and pan"
+            >
+              Reset View
+            </button>
+            <button 
+              class="bg-purple-500 text-white border-2 border-black rounded px-3 py-2 font-mono font-bold text-sm cursor-pointer hover:bg-opacity-90"
+              on:click={fitMindmapToContainer}
+              title="Fit mindmap to container"
+            >
+              Fit to View
+            </button>
+          </div>
+
+          <!-- Help text -->
+          <div class="text-xs text-gray-600 text-center mb-4">
+            🖱️ Scroll to zoom • Drag to pan • Use controls above for precise adjustments
+          </div>
+
+          <!-- Action buttons -->
+          <div class="flex gap-3 justify-center">
+            <button 
+              class="bg-brand-blue text-white border-2 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer hover:bg-opacity-90"
+              on:click={() => mindmapData && copyToClipboard(mindmapData.mindmap, 'mindmap')}
+            >
+              {copiedMessageId === 'mindmap' ? 'Copied!' : 'Copy Mermaid Code'}
+            </button>
+            <button 
+              class="bg-green-500 text-white border-2 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer hover:bg-opacity-90"
+              on:click={() => {
+                const svg = document.querySelector('#mindmap-container svg');
+                if (svg) {
+                  const svgData = new XMLSerializer().serializeToString(svg);
+                  const blob = new Blob([svgData], { type: 'image/svg+xml' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${mindmapData?.topic_name.replace(/[^a-zA-Z0-9]/g, '_')}_mindmap.svg`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }
+              }}
+            >
+              Download SVG
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -760,5 +1126,21 @@
   
   textarea::-webkit-scrollbar-thumb:hover {
     background: #555;
+  }
+
+  /* Mindmap pan and zoom styles */
+  .cursor-grabbing {
+    cursor: grabbing !important;
+  }
+
+  #mindmap-container {
+    transition: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+  }
+
+  #mindmap-container svg {
+    pointer-events: none;
   }
 </style>
