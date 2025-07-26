@@ -6,6 +6,7 @@
   - View source materials in a sidebar
   - Interact with Study4Me AI via LightRAG or ChatGPT+context
   - Access study session actions (podcast, mindmap, summarize)
+  - Copy AI responses to clipboard
   
   Features:
   - Real-time chat interface with backend query API integration
@@ -15,6 +16,7 @@
   - Source materials sidebar for reference
   - Session actions for enhanced learning
   - Processing method and time display for AI responses
+  - Copy to clipboard functionality for AI responses
   - Keyboard shortcuts (Enter to send, Escape to close)
   - Comprehensive error handling and loading states
   - Accessible design with proper ARIA attributes
@@ -46,11 +48,47 @@
   let currentMessage = ''             // Current message being typed
   let isLoading = false              // Loading state during AI response
   let errorMessage = ''              // Error message for failed queries
+  let copiedMessageId: string | null = null  // Track which message was just copied
 
   // Clear chat messages when modal opens
   $: if (isOpen) {
     chatMessages = []
     errorMessage = ''
+    copiedMessageId = null
+  }
+
+  /**
+   * Copies text to clipboard and provides user feedback
+   * @param text - Text to copy to clipboard
+   * @param messageId - ID of the message being copied for visual feedback
+   */
+  async function copyToClipboard(text: string, messageId: string) {
+    try {
+      await navigator.clipboard.writeText(text)
+      copiedMessageId = messageId
+      
+      // Reset the copied state after 2 seconds
+      setTimeout(() => {
+        copiedMessageId = null
+      }, 2000)
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error)
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea')
+      textArea.value = text
+      document.body.appendChild(textArea)
+      textArea.select()
+      try {
+        document.execCommand('copy')
+        copiedMessageId = messageId
+        setTimeout(() => {
+          copiedMessageId = null
+        }, 2000)
+      } catch (fallbackError) {
+        console.error('Fallback copy failed:', fallbackError)
+      }
+      document.body.removeChild(textArea)
+    }
   }
 
   /**
@@ -342,10 +380,25 @@
                       - Contains sender, content, and timestamp
                     -->
                     <div class="max-w-sm lg:max-w-md xl:max-w-lg p-3 border-2 border-black {message.type === 'user' ? 'bg-blue-100' : 'bg-white'}">
-                      <!-- Sender identification -->
-                      <div class="font-bold text-xs mb-1 uppercase font-mono">
-                        {message.type === 'user' ? 'You' : 'Study4Me AI'}
+                      <!-- Message header with sender and copy button for AI messages -->
+                      <div class="flex justify-between items-start mb-1">
+                        <!-- Sender identification -->
+                        <div class="font-bold text-xs uppercase font-mono">
+                          {message.type === 'user' ? 'You' : 'Study4Me AI'}
+                        </div>
+                        
+                        <!-- Copy button for AI messages -->
+                        {#if message.type === 'assistant'}
+                          <button 
+                            class="text-xs bg-gray-200 hover:bg-gray-300 border border-gray-400 rounded px-2 py-1 font-mono transition-colors duration-200"
+                            on:click={() => copyToClipboard(message.content, message.id)}
+                            title="Copy to clipboard"
+                          >
+                            {copiedMessageId === message.id ? 'Copied!' : 'Copy'}
+                          </button>
+                        {/if}
                       </div>
+                      
                       <!-- Message content with formatting support -->
                       <div class="text-sm leading-6">
                         {#if message.type === 'assistant'}
@@ -354,6 +407,7 @@
                           {message.content}
                         {/if}
                       </div>
+                      
                       <!-- Message metadata (timestamp and processing info for AI messages) -->
                       <div class="text-xs text-gray-600 mt-2">
                         {message.timestamp.toLocaleTimeString()}
