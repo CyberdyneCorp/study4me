@@ -8,9 +8,12 @@ Study4Me solves the fragmentation problem where learners jump between videos, sl
 
 ### Key Features
 
-- **Multi-Source Content Ingestion**: YouTube transcripts, PDFs, images (OCR), and web articles
-- **Interactive Knowledge Graphs**: LightRag-powered visualization with pan & zoom navigation
-- **AI-Powered Q&A**: Natural language queries with context-backed answers and citations
+- **Multi-Source Content Ingestion**: YouTube transcripts, PDFs, images (OCR), and web articles with topic-specific storage
+- **Topic-Specific Knowledge Graphs**: Individual LightRAG instances per study topic with isolated storage
+- **Dual Query System**: LightRAG for knowledge graphs OR ChatGPT with full context for content-only topics
+- **Study Topics Management**: Create and manage isolated study topics with configurable processing modes
+- **Token-Aware Content Analysis**: Accurate token counting with tiktoken for content and cost estimation
+- **AI-Powered Q&A**: Intelligent query routing with enhanced response metadata and source citations
 - **Audio Class Generation**: ElevenLabs voice synthesis for downloadable MP3 summaries
 - **Web3 Authentication**: Wallet-based login with NFT access control on Base & Arbitrum
 - **Decentralized Storage**: Content permanently stored on IPFS & ARWeave

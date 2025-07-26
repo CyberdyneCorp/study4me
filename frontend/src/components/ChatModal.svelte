@@ -1,37 +1,96 @@
 <!--
-  ChatModal.svelte - Interactive study chat interface
+  ChatModal.svelte - Interactive study chat interface with backend integration
   
   This modal provides an AI-powered chat interface where users can:
-  - Ask questions about their study topic
+  - Ask questions about their study topic using the dual query system
   - View source materials in a sidebar
-  - Interact with Study4Me AI for learning assistance
+  - Interact with Study4Me AI via LightRAG or ChatGPT+context
   - Access study session actions (podcast, mindmap, summarize)
   
   Features:
-  - Real-time chat interface with message history
+  - Real-time chat interface with backend query API integration
+  - Dual query system support (LightRAG knowledge graphs or ChatGPT with context)
+  - Auto-clearing chat history when modal opens for fresh conversations
+  - Rich text formatting for AI responses (headers, bold, lists, code blocks)
   - Source materials sidebar for reference
   - Session actions for enhanced learning
+  - Processing method and time display for AI responses
   - Keyboard shortcuts (Enter to send, Escape to close)
-  - Loading states and error handling
+  - Comprehensive error handling and loading states
   - Accessible design with proper ARIA attributes
+  
+  Backend Integration:
+  - Uses GET /query endpoint for synchronous responses
+  - Supports study topic UUID-based queries
+  - Handles both LightRAG and ChatGPT+context processing methods
+  - Displays processing metadata (method, time) for transparency
 -->
 
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
   import Button from './Button.svelte'
+  import { apiService } from '../services/api'
+  import type { QueryResponse } from '../services/api'
   
   // Props passed from parent component
   export let isOpen = false           // Controls modal visibility
   export let topicTitle = ''          // Title of the topic being studied
+  export let studyTopicId = ''        // UUID of the study topic for backend queries
   export let sources: Array<{id: string, title: string, type: string}> = []  // Available source materials
   
   // Event dispatcher for parent communication
   const dispatch = createEventDispatcher()
   
   // Chat state variables
-  let chatMessages: Array<{id: string, content: string, type: 'user' | 'assistant', timestamp: Date}> = []  // Message history
+  let chatMessages: Array<{id: string, content: string, type: 'user' | 'assistant', timestamp: Date, processingMethod?: string, processingTime?: number}> = []  // Message history
   let currentMessage = ''             // Current message being typed
   let isLoading = false              // Loading state during AI response
+  let errorMessage = ''              // Error message for failed queries
+
+  // Clear chat messages when modal opens
+  $: if (isOpen) {
+    chatMessages = []
+    errorMessage = ''
+  }
+
+  /**
+   * Formats AI response text to handle markdown-like formatting
+   * Converts markdown headers, bold text, lists, and preserves line breaks
+   * @param text - Raw text from AI response
+   * @returns Formatted HTML string
+   */
+  function formatResponseText(text: string): string {
+    if (!text) return ''
+    
+    return text
+      // Handle code blocks (``` or ``` language)
+      .replace(/```[\w]*\n([\s\S]*?)\n```/g, '<pre class="bg-gray-100 border border-gray-300 rounded p-3 mt-2 mb-2 text-xs overflow-x-auto"><code>$1</code></pre>')
+      // Convert ### headers to styled headers
+      .replace(/^### (.+)$/gm, '<h3 class="text-base font-bold mt-4 mb-2 text-black">$1</h3>')
+      // Convert ## headers to slightly larger headers
+      .replace(/^## (.+)$/gm, '<h2 class="text-lg font-bold mt-4 mb-2 text-black">$1</h2>')
+      // Convert ** bold text ** to bold
+      .replace(/\*\*(.+?)\*\*/g, '<strong class="font-bold">$1</strong>')
+      // Convert inline code `code` to styled code
+      .replace(/`([^`]+)`/g, '<code class="bg-gray-100 px-1 rounded text-xs font-mono">$1</code>')
+      // Convert - bullet points to styled list items (handle nested bullets)
+      .replace(/^[\s]*- (.+)$/gm, (match, p1) => {
+        const indentMatch = match.match(/^(\s*)/)
+        const indent = indentMatch ? indentMatch[1].length : 0
+        const marginLeft = Math.max(4, indent * 2 + 4)
+        return `<div class="mb-1" style="margin-left: ${marginLeft}px">• ${p1}</div>`
+      })
+      // Convert numbered lists (1. 2. etc.)
+      .replace(/^(\d+)\. (.+)$/gm, '<div class="ml-4 mb-1">$1. $2</div>')
+      // Convert double line breaks to paragraph breaks
+      .replace(/\n\n/g, '</p><p class="mb-3">')
+      // Convert single line breaks to br tags
+      .replace(/\n/g, '<br>')
+      // Wrap the whole thing in a paragraph if it doesn't start with a header or pre
+      .replace(/^(?!<[h2-3]|<pre)/, '<p class="mb-3">')
+      // Add closing paragraph tag at the end if needed
+      .replace(/([^>])$/, '$1</p>')
+  }
   
   /**
    * Closes the chat modal and notifies parent component
@@ -54,12 +113,18 @@
   
   /**
    * Handles sending a chat message to the AI assistant
-   * Validates input, adds user message to chat, and initiates AI response
-   * Currently uses simulated API response - will be replaced with actual AI integration
+   * Validates input, adds user message to chat, and calls backend query API
+   * Integrates with Study4Me backend dual query system (LightRAG or ChatGPT+context)
    */
   async function handleSendMessage() {
     // Prevent sending empty messages or multiple simultaneous requests
     if (!currentMessage.trim() || isLoading) return
+    
+    // Validate that we have a study topic ID
+    if (!studyTopicId) {
+      errorMessage = 'No study topic selected. Please select a topic first.'
+      return
+    }
     
     // Create user message object
     const userMessage = {
@@ -74,19 +139,41 @@
     const messageToSend = currentMessage  // Store message before clearing input
     currentMessage = ''                   // Clear input field immediately
     isLoading = true                     // Show loading state
+    errorMessage = ''                    // Clear any previous errors
     
-    // TODO: Replace with actual AI API call
-    // Simulate API response delay
-    setTimeout(() => {
+    try {
+      // Call backend query API using the API service
+      const data: QueryResponse = await apiService.queryStudyTopic(studyTopicId, messageToSend, 'hybrid')
+      
+      // Create assistant message with response data
       const assistantMessage = {
         id: (Date.now() + 1).toString(),   // Ensure unique ID
-        content: `I understand you're asking about "${messageToSend}". Based on the sources in this topic, here's what I can tell you...`,
+        content: data.result || 'No response received',
         type: 'assistant' as const,        // AI response type
-        timestamp: new Date()             // Response timestamp
+        timestamp: new Date(),             // Response timestamp
+        processingMethod: data.processing_method,
+        processingTime: data.processing_time_seconds
       }
+      
       chatMessages = [...chatMessages, assistantMessage]  // Add AI response to chat
+      
+    } catch (error) {
+      console.error('Query failed:', error)
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred'
+      errorMessage = `Failed to get response: ${errorMsg}`
+      
+      // Add error message to chat
+      const errorChatMessage = {
+        id: (Date.now() + 1).toString(),
+        content: `Sorry, I encountered an error: ${errorMsg}`,
+        type: 'assistant' as const,
+        timestamp: new Date()
+      }
+      chatMessages = [...chatMessages, errorChatMessage]
+      
+    } finally {
       isLoading = false                                   // Clear loading state
-    }, 1500)
+    }
   }
   
   /**
@@ -259,13 +346,25 @@
                       <div class="font-bold text-xs mb-1 uppercase font-mono">
                         {message.type === 'user' ? 'You' : 'Study4Me AI'}
                       </div>
-                      <!-- Message content -->
+                      <!-- Message content with formatting support -->
                       <div class="text-sm leading-6">
-                        {message.content}
+                        {#if message.type === 'assistant'}
+                          {@html formatResponseText(message.content)}
+                        {:else}
+                          {message.content}
+                        {/if}
                       </div>
-                      <!-- Timestamp -->
+                      <!-- Message metadata (timestamp and processing info for AI messages) -->
                       <div class="text-xs text-gray-600 mt-2">
                         {message.timestamp.toLocaleTimeString()}
+                        {#if message.type === 'assistant' && message.processingMethod}
+                          <span class="ml-2 text-blue-600">
+                            • {message.processingMethod}
+                            {#if message.processingTime}
+                              ({message.processingTime}s)
+                            {/if}
+                          </span>
+                        {/if}
                       </div>
                     </div>
                   </div>
@@ -294,8 +393,15 @@
             - Contains textarea and send button
             - White background with top border separator
             - Includes keyboard shortcut instructions
+            - Shows error messages when queries fail
           -->
           <div class="p-4 border-t-4 border-black bg-white">
+            <!-- Error message display -->
+            {#if errorMessage}
+              <div class="mb-3 p-3 bg-red-100 border-2 border-red-500 text-red-700 text-sm">
+                <strong>Error:</strong> {errorMessage}
+              </div>
+            {/if}
             <!-- Input controls container -->
             <div class="flex gap-2">
               <!-- 

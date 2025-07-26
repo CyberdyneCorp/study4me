@@ -8,19 +8,22 @@ FastAPI backend server for the Study4Me application, providing APIs for document
 - **YouTube Integration**: Extract transcripts from YouTube videos using yt-dlp
 - **Web Scraping**: Process web pages and articles using Trafilatura
 - **Image Analysis**: Analyze images using OpenAI Vision API
-- **Knowledge Graph**: Generate interactive knowledge graphs using LightRAG
-- **AI Querying**: Natural language queries with multiple modes (naive, local, global, hybrid)
-- **Background Processing**: Asynchronous task processing with status tracking
+- **Topic-Specific Knowledge Graphs**: Individual LightRAG instances per study topic with isolated storage
+- **Dual Query System**: LightRAG for knowledge graphs OR ChatGPT with full context for content-only topics
+- **Study Topics Management**: Create and manage isolated study topics with configurable processing modes
+- **Content Storage**: SQLite-based content storage with UUID tracking and topic relationships
+- **Background Processing**: Asynchronous task processing with status tracking and graceful shutdown
 - **RESTful API**: Comprehensive REST API with automatic OpenAPI documentation
 
 ## Tech Stack
 
 - **Framework**: FastAPI with async/await support
 - **Document Processing**: Docling for PDFs, Word, Excel
-- **AI/LLM**: OpenAI GPT-4 and embeddings via LightRAG
-- **Knowledge Graph**: LightRAG with NetworkX visualization
+- **AI/LLM**: OpenAI GPT-4 and embeddings via LightRAG + ChatGPT API for context queries
+- **Knowledge Graph**: Topic-specific LightRAG instances with NetworkX visualization
 - **YouTube**: yt-dlp for transcript extraction
-- **Database**: SQLite with aiosqlite for async operations
+- **Database**: SQLite with aiosqlite for async operations, content storage, and topic management
+- **Token Counting**: tiktoken for accurate token estimation and content analysis
 - **HTTP Client**: httpx for external API calls
 - **Environment**: python-dotenv for configuration
 
@@ -71,10 +74,10 @@ Once running, visit:
 - `GET /readyz` - Kubernetes readiness probe endpoint
 
 ### Knowledge Upload
-- `POST /documents/upload` - Upload and process documents (PDF, DOCX, XLS, XLSX)
-- `POST /webpage/process` - Process web page content with background processing
-- `POST /youtube/process` - Process YouTube video transcripts and add to knowledge base
-- `POST /image/interpret` - Analyze images with OpenAI Vision API
+- `POST /documents/upload` - Upload and process documents (PDF, DOCX, XLS, XLSX) with study topic association
+- `POST /webpage/process` - Process web page content with topic-specific storage
+- `POST /youtube/process` - Process YouTube video transcripts with topic association
+- `POST /image/interpret` - Analyze images with OpenAI Vision API and topic storage
 
 ### Datasource Management
 - `GET /datasources` - List all uploaded documents with metadata
@@ -92,8 +95,8 @@ Once running, visit:
 - `GET /graph/png` - Render and download knowledge graph as PNG image
 
 ### AI Querying
-- `GET /query` - Synchronous queries with multiple modes (naive, local, global, hybrid)
-- `POST /query-async` - Asynchronous queries with background processing and callback support
+- `GET /query` - Dual query system: LightRAG (KG topics) or ChatGPT+context (content topics)
+- `POST /query-async` - Asynchronous queries with intelligent routing and enhanced response metadata
 
 ### Task Management
 - `GET /task-status/{task_id}` - Check background task status and retrieve results
@@ -102,6 +105,7 @@ Once running, visit:
 - `POST /study-topics` - Create a new study topic with UUID (name, description, use_knowledge_graph)
 - `GET /study-topics` - List all study topics with pagination support
 - `GET /study-topics/{topic_id}` - Get specific study topic by UUID
+- `GET /study-topics/{topic_id}/content` - Get all content items with individual token counts
 - `PUT /study-topics/{topic_id}` - Update existing study topic
 - `DELETE /study-topics/{topic_id}` - Delete study topic by UUID
 
@@ -116,9 +120,15 @@ backend/
 ├── config.env         # Environment configuration template
 ├── utils/
 │   ├── __init__.py
-│   ├── db_async.py     # Database operations
-│   ├── utils_async.py  # Background processing utilities
+│   ├── db_async.py     # Database operations and content storage
+│   ├── utils_async.py  # Background processing and dual query system
 │   └── utils_ws.py     # Webhook/callback utilities
+├── rag_storage/        # Topic-specific LightRAG instances
+│   ├── topic_{uuid1}/  # Individual topic knowledge graphs
+│   ├── topic_{uuid2}/  # Isolated storage per topic
+│   └── ...
+├── uploaded_docs/      # Document storage
+├── rag_tasks.db       # SQLite database (topics, content, tasks)
 └── README.md          # This file
 ```
 
@@ -133,16 +143,33 @@ The application uses FastAPI's `BackgroundTasks` for processing with graceful sh
 5. **Graceful Shutdown**: Background tasks are properly cancelled on server shutdown
 6. **Error Handling**: Comprehensive OpenAI API error handling with structured responses
 
-### LightRAG Integration
+### Topic-Specific Architecture
 
-- **Initialization**: LightRAG instance created at startup with OpenAI integration
-- **Document Ingestion**: Documents converted to markdown, then inserted into RAG
-- **Knowledge Graph**: Entities and relationships extracted automatically
+#### LightRAG Integration (Knowledge Graph Topics)
+- **Topic Isolation**: Each study topic gets its own LightRAG instance and storage directory
+- **Folder Structure**: `./rag_storage/topic_{uuid}/` contains dedicated KG data
+- **Instance Caching**: LightRAG instances cached for performance optimization
 - **Query Modes**: 
-  - `naive`: Simple text search
-  - `local`: Local context search
-  - `global`: Global knowledge search
+  - `naive`: Simple text search within topic
+  - `local`: Local context search within topic
+  - `global`: Global knowledge search within topic
   - `hybrid`: Combined approach (default)
+
+#### ChatGPT Context System (Content-Only Topics)
+- **Content Aggregation**: All topic content loaded and combined for context
+- **Context-Aware Prompting**: Sophisticated prompts restrict AI to provided context only
+- **Source Citation**: AI encouraged to cite specific documents and sections
+- **Token Management**: tiktoken used for accurate token counting and content analysis
+
+#### Dual Query Routing
+```python
+if topic.use_knowledge_graph:
+    # Use topic-specific LightRAG instance
+    result = await topic_rag.query(query, mode=mode)
+else:
+    # Use ChatGPT with full topic content as context
+    result = await query_with_context(query, combined_content, topic_name)
+```
 
 ## Development
 

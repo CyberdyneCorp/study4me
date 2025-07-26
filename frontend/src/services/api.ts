@@ -36,6 +36,16 @@ interface StudyTopicsListResponse {
   topics: StudyTopic[]
 }
 
+interface QueryResponse {
+  result: string
+  processing_method: string
+  processing_time_seconds: number
+  total_time_seconds: number
+  study_topic_id: string
+  study_topic_name: string
+  use_knowledge_graph: boolean
+}
+
 class ApiService {
   private async request<T>(
     endpoint: string,
@@ -105,6 +115,14 @@ class ApiService {
       method: 'DELETE',
     })
     return response as unknown as { message: string; topic_id: string; name: string }
+  }
+
+  // === Query System ===
+
+  async queryStudyTopic(studyTopicId: string, query: string, mode: string = 'hybrid'): Promise<QueryResponse> {
+    const encodedQuery = encodeURIComponent(query)
+    const response = await this.request<QueryResponse>(`/query?query=${encodedQuery}&study_topic_id=${studyTopicId}&mode=${mode}`)
+    return response as unknown as QueryResponse
   }
 
   // === Legacy Topic Methods (keeping for compatibility) ===
@@ -181,5 +199,6 @@ export type {
   StudyTopic,
   CreateStudyTopicRequest,
   CreateStudyTopicResponse,
-  StudyTopicsListResponse
+  StudyTopicsListResponse,
+  QueryResponse
 }
