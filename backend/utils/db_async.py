@@ -23,6 +23,10 @@ async def init_db():
             name TEXT NOT NULL,
             description TEXT,
             use_knowledge_graph BOOLEAN NOT NULL DEFAULT 1,
+            summary TEXT,
+            summary_generated_at TIMESTAMP,
+            mindmap TEXT,
+            mindmap_generated_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -83,7 +87,7 @@ async def get_study_topic(topic_id: str):
     """Get a study topic by ID"""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute("""
-        SELECT topic_id, name, description, use_knowledge_graph, created_at, updated_at 
+        SELECT topic_id, name, description, use_knowledge_graph, summary, summary_generated_at, mindmap, mindmap_generated_at, created_at, updated_at 
         FROM study_topics WHERE topic_id = ?
         """, (topic_id,)) as cursor:
             row = await cursor.fetchone()
@@ -93,8 +97,12 @@ async def get_study_topic(topic_id: str):
                     "name": row[1],
                     "description": row[2],
                     "use_knowledge_graph": bool(row[3]),
-                    "created_at": row[4],
-                    "updated_at": row[5]
+                    "summary": row[4],
+                    "summary_generated_at": row[5],
+                    "mindmap": row[6],
+                    "mindmap_generated_at": row[7],
+                    "created_at": row[8],
+                    "updated_at": row[9]
                 }
             return None
 
@@ -102,7 +110,7 @@ async def list_study_topics(limit: int = 100, offset: int = 0):
     """List all study topics with pagination"""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute("""
-        SELECT topic_id, name, description, use_knowledge_graph, created_at, updated_at 
+        SELECT topic_id, name, description, use_knowledge_graph, summary, summary_generated_at, mindmap, mindmap_generated_at, created_at, updated_at 
         FROM study_topics 
         ORDER BY created_at DESC 
         LIMIT ? OFFSET ?
@@ -115,8 +123,12 @@ async def list_study_topics(limit: int = 100, offset: int = 0):
                     "name": row[1],
                     "description": row[2],
                     "use_knowledge_graph": bool(row[3]),
-                    "created_at": row[4],
-                    "updated_at": row[5]
+                    "summary": row[4],
+                    "summary_generated_at": row[5],
+                    "mindmap": row[6],
+                    "mindmap_generated_at": row[7],
+                    "created_at": row[8],
+                    "updated_at": row[9]
                 })
             return topics
 
@@ -154,6 +166,26 @@ async def delete_study_topic(topic_id: str):
         cursor = await db.execute("DELETE FROM study_topics WHERE topic_id = ?", (topic_id,))
         await db.commit()
         return cursor.rowcount > 0
+
+async def save_study_topic_summary(topic_id: str, summary: str):
+    """Save or update a study topic summary"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+        UPDATE study_topics 
+        SET summary = ?, summary_generated_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+        WHERE topic_id = ?
+        """, (summary, topic_id))
+        await db.commit()
+
+async def save_study_topic_mindmap(topic_id: str, mindmap: str):
+    """Save or update a study topic mindmap"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+        UPDATE study_topics 
+        SET mindmap = ?, mindmap_generated_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+        WHERE topic_id = ?
+        """, (mindmap, topic_id))
+        await db.commit()
 
 # === Content Items Functions ===
 
