@@ -635,7 +635,8 @@
           {:else if activeTab === 'website'}
             <div class="h-full flex flex-col gap-4">
               
-              <!-- Website scraping introduction -->\n              <div class="text-center mb-4">
+              <!-- Website scraping introduction -->
+              <div class="text-center mb-4">
                 <div class="text-3xl mb-2">🌐</div>
                 <h3 class="text-base font-bold font-mono mb-1">
                   Scrape Website
@@ -645,12 +646,18 @@
                 </p>
               </div>
               
-              <!-- \n                Website URL Input Section\n                - Input field with label and submit button\n                - TODO: Implement actual scraping functionality\n              -->\n              <div class="bg-white border-2 border-black p-4">
+              <!-- 
+                Website URL Input Section
+                - Input field with label and submit button
+                - Integrated with backend scraping functionality
+              -->
+              <div class="bg-white border-2 border-black p-4">
                 <label for="website-url-input" class="block font-bold font-mono mb-2 text-sm">
                   Website URL
                 </label>
                 <div class="flex gap-2">
-                  <!-- URL input field -->\n                  <input 
+                  <!-- URL input field -->
+                  <input 
                     id="website-url-input"
                     type="url"
                     bind:value={websiteUrl}
@@ -668,21 +675,30 @@
                 </div>
               </div>
               
-              <!-- \n                Quick Actions Grid\n                - Preset buttons for common website types\n                - Visual categories to help users choose appropriate scraping method\n                - TODO: Implement functionality for each quick action\n              -->\n              <div class="bg-white border-2 border-black p-4">
+              <!-- 
+                Quick Actions Grid
+                - Preset buttons for common website types
+                - Visual categories to help users choose appropriate scraping method
+              -->
+              <div class="bg-white border-2 border-black p-4">
                 <h4 class="font-bold font-mono mb-3 text-sm">
                   Quick Actions
                 </h4>
                 <div class="grid grid-cols-2 gap-2">
-                  <!-- Article/Blog preset -->\n                  <button class="p-3 border-2 border-black bg-gray-50 text-left cursor-pointer font-mono text-xs hover:bg-brand-yellow">
+                  <!-- Article/Blog preset -->
+                  <button class="p-3 border-2 border-black bg-gray-50 text-left cursor-pointer font-mono text-xs hover:bg-brand-yellow">
                     📄 Article/Blog
                   </button>
-                  <!-- Documentation preset -->\n                  <button class="p-3 border-2 border-black bg-gray-50 text-left cursor-pointer font-mono text-xs hover:bg-brand-yellow">
+                  <!-- Documentation preset -->
+                  <button class="p-3 border-2 border-black bg-gray-50 text-left cursor-pointer font-mono text-xs hover:bg-brand-yellow">
                     📚 Documentation
                   </button>
-                  <!-- News article preset -->\n                  <button class="p-3 border-2 border-black bg-gray-50 text-left cursor-pointer font-mono text-xs hover:bg-brand-yellow">
+                  <!-- News article preset -->
+                  <button class="p-3 border-2 border-black bg-gray-50 text-left cursor-pointer font-mono text-xs hover:bg-brand-yellow">
                     📰 News Article
                   </button>
-                  <!-- Company page preset -->\n                  <button class="p-3 border-2 border-black bg-gray-50 text-left cursor-pointer font-mono text-xs hover:bg-brand-yellow">
+                  <!-- Company page preset -->
+                  <button class="p-3 border-2 border-black bg-gray-50 text-left cursor-pointer font-mono text-xs hover:bg-brand-yellow">
                     🏢 Company Page
                   </button>
                 </div>
