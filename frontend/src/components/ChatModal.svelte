@@ -76,6 +76,10 @@
   let lastMouseX = 0
   let lastMouseY = 0
 
+  // Reference content modal state
+  let isReferenceModalOpen = false
+  let selectedReference: ContentItem | null = null
+
   // Initialize Mermaid on component mount
   onMount(() => {
     mermaid.initialize({
@@ -316,6 +320,40 @@
     mindmapScale = newScale
     mindmapTranslateX = (containerRect.width - svg.viewBox.baseVal.width * newScale) / 2
     mindmapTranslateY = (containerRect.height - svg.viewBox.baseVal.height * newScale) / 2
+  }
+
+  /**
+   * Opens the reference content modal with the selected reference
+   */
+  function openReferenceModal(reference: ContentItem) {
+    selectedReference = reference
+    isReferenceModalOpen = true
+  }
+
+  /**
+   * Closes the reference content modal
+   */
+  function closeReferenceModal() {
+    isReferenceModalOpen = false
+    selectedReference = null
+  }
+
+  /**
+   * Downloads a file (for document references with download URLs)
+   */
+  function downloadReference(reference: ContentItem) {
+    if (reference.file_path && studyTopicId) {
+      // Create a download link using the backend file serve endpoint with study topic organization
+      const fileName = reference.file_path.split('/').pop() || 'download'
+      const downloadUrl = `http://localhost:8000/files/${studyTopicId}/${encodeURIComponent(fileName)}`
+      
+      const a = document.createElement('a')
+      a.href = downloadUrl
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    }
   }
 
   /**
@@ -593,8 +631,15 @@
                   - White background with hover effects
                   - Shows title, type, and metadata with color transitions
                   - Interactive hover state with blue background
+                  - Clickable to open reference content modal
                 -->
-                <div class="p-3 border-2 border-black bg-white cursor-pointer transition-all duration-300 hover:bg-brand-blue group">
+                <div 
+                  class="p-3 border-2 border-black bg-white cursor-pointer transition-all duration-300 hover:bg-brand-blue group"
+                  on:click={() => openReferenceModal(reference)}
+                  on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && openReferenceModal(reference)}
+                  role="button"
+                  tabindex="0"
+                  aria-label="View content for {reference.title}">
                   <!-- Reference title with hover color change -->
                   <div class="font-bold text-sm font-mono text-black group-hover:text-white transition-colors duration-300 mb-1">
                     {reference.title}
@@ -1096,6 +1141,111 @@
             >
               Download SVG
             </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Reference Content Modal -->
+{#if isReferenceModalOpen && selectedReference}
+  <div 
+    class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-[80]"
+    on:click={(e) => e.target === e.currentTarget && closeReferenceModal()}
+    on:keydown={(e) => e.key === 'Escape' && closeReferenceModal()}
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="reference-modal-title"
+    tabindex="-1"
+  >
+    <div class="bg-white border-4 border-black w-full max-w-4xl max-h-[90vh] flex flex-col">
+      <!-- Reference Modal Header -->
+      <div class="flex justify-between items-center p-4 border-b-4 border-black bg-white">
+        <div class="flex-1 mr-4">
+          <h2 id="reference-modal-title" class="text-xl font-bold font-mono text-black mb-1">
+            {selectedReference.title}
+          </h2>
+          <div class="flex items-center gap-4 text-sm text-gray-600">
+            <span class="uppercase font-bold">{selectedReference.content_type}</span>
+            <span>{selectedReference.content_length} chars • {selectedReference.number_tokens} tokens</span>
+          </div>
+        </div>
+        <button 
+          class="bg-brand-pink text-white border-2 border-black rounded px-3 py-2 font-mono font-bold cursor-pointer text-lg hover:bg-opacity-90"
+          on:click={closeReferenceModal}
+          aria-label="Close reference modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- Reference Modal Body -->
+      <div class="flex-1 overflow-y-auto">
+        
+        <!-- Source Info Section -->
+        <div class="bg-gray-50 border-b-2 border-gray-300 p-4">
+          <div class="flex flex-wrap gap-4 items-center">
+            <!-- Source URL (for YouTube/Web content) -->
+            {#if selectedReference.source_url}
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-gray-700">Source:</span>
+                <a 
+                  href={selectedReference.source_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  class="text-blue-600 hover:text-blue-800 underline break-all"
+                >
+                  {selectedReference.source_url}
+                </a>
+                <button
+                  class="bg-blue-500 text-white border border-black rounded px-2 py-1 text-xs font-mono font-bold hover:bg-opacity-90"
+                  on:click={() => window.open(selectedReference.source_url, '_blank')}
+                >
+                  Open Link
+                </button>
+              </div>
+            <!-- File Path (for documents) -->
+            {:else if selectedReference.file_path}
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-gray-700">File:</span>
+                <span class="text-green-600 font-mono text-sm">
+                  {selectedReference.file_path.split('/').pop()}
+                </span>
+                <button
+                  class="bg-green-500 text-white border border-black rounded px-2 py-1 text-xs font-mono font-bold hover:bg-opacity-90"
+                  on:click={() => downloadReference(selectedReference)}
+                >
+                  Download
+                </button>
+              </div>
+            {/if}
+          </div>
+          
+          <!-- Metadata if available -->
+          {#if selectedReference.metadata}
+            <div class="mt-3 text-xs text-gray-600">
+              <span class="font-bold">Metadata:</span>
+              <pre class="mt-1 bg-white border border-gray-300 rounded p-2 text-xs overflow-x-auto">{JSON.stringify(JSON.parse(selectedReference.metadata), null, 2)}</pre>
+            </div>
+          {/if}
+        </div>
+
+        <!-- Content Section -->
+        <div class="p-6">
+          <div class="mb-4 flex justify-between items-center">
+            <h3 class="text-lg font-bold font-mono text-black">Content</h3>
+            <button 
+              class="bg-brand-blue text-white border-2 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer hover:bg-opacity-90"
+              on:click={() => selectedReference && copyToClipboard(selectedReference.content, `reference-${selectedReference.content_id}`)}
+            >
+              {copiedMessageId === `reference-${selectedReference.content_id}` ? 'Copied!' : 'Copy Content (Ctrl+C)'}
+            </button>
+          </div>
+          
+          <!-- Content Display -->
+          <div class="bg-gray-50 border-2 border-gray-300 rounded p-4 max-h-96 overflow-y-auto">
+            <pre class="whitespace-pre-wrap text-sm leading-6 font-mono text-gray-800">{selectedReference.content}</pre>
           </div>
         </div>
       </div>

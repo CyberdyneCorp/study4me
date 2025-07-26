@@ -494,6 +494,149 @@ def get_websocket_status():
         "timestamp": time.time()
     }
 
+@app.get("/files/{study_topic_id}/{filename}", tags=["File Management"])
+async def download_file(study_topic_id: str, filename: str):
+    """Download a file from the study topic's uploaded documents folder."""
+    try:
+        # Construct the file path based on study topic UUID organization
+        file_path = os.path.join(UPLOAD_DIR, study_topic_id, filename)
+        
+        # Check if file exists
+        if not os.path.exists(file_path):
+            # Fallback: check in root uploaded_docs for legacy files
+            legacy_file_path = os.path.join(UPLOAD_DIR, filename)
+            if os.path.exists(legacy_file_path):
+                file_path = legacy_file_path
+            else:
+                logger.warning(f"File not found: {filename} for topic {study_topic_id}")
+                raise HTTPException(status_code=404, detail=f"File '{filename}' not found")
+        
+        # Security check: ensure the file is within the upload directory
+        upload_dir_abs = os.path.abspath(UPLOAD_DIR)
+        file_path_abs = os.path.abspath(file_path)
+        if not file_path_abs.startswith(upload_dir_abs):
+            logger.warning(f"Security violation: attempt to access file outside upload directory: {file_path}")
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        logger.info(f"📁 Serving file: {filename} for topic {study_topic_id}")
+        return FileResponse(
+            path=file_path,
+            filename=filename,
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error serving file {filename}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.post("/files/migrate-to-topics", tags=["File Management"])
+async def migrate_files_to_topic_folders():
+    """
+    Migrate existing files from root uploaded_docs to topic-specific folders.
+    This is a one-time migration for legacy files.
+    """
+    try:
+        logger.info("🔄 Starting file migration to topic-specific folders...")
+        
+        # Get all content items with file paths
+        import aiosqlite
+        DB_PATH = os.getenv("DB_PATH", "rag_tasks.db")
+        
+        migration_results = {
+            "migrated": [],
+            "skipped": [],
+            "errors": []
+        }
+        
+        async with aiosqlite.connect(DB_PATH) as db:
+            cursor = await db.execute("""
+                SELECT DISTINCT study_topic_id, file_path, title 
+                FROM content_items 
+                WHERE file_path IS NOT NULL 
+                AND file_path LIKE './uploaded_docs/%'
+                AND file_path NOT LIKE './uploaded_docs/%/%'
+            """)
+            files_to_migrate = await cursor.fetchall()
+        
+        for study_topic_id, file_path, title in files_to_migrate:
+            try:
+                # Extract filename from path
+                filename = os.path.basename(file_path)
+                
+                # Check if source file exists
+                source_path = file_path
+                if not os.path.exists(source_path):
+                    migration_results["errors"].append({
+                        "file": filename,
+                        "topic_id": study_topic_id,
+                        "error": "Source file not found"
+                    })
+                    continue
+                
+                # Create topic directory
+                topic_dir = os.path.join(UPLOAD_DIR, study_topic_id)
+                os.makedirs(topic_dir, exist_ok=True)
+                
+                # Define destination path
+                dest_path = os.path.join(topic_dir, filename)
+                
+                # Skip if destination already exists
+                if os.path.exists(dest_path):
+                    migration_results["skipped"].append({
+                        "file": filename,
+                        "topic_id": study_topic_id,
+                        "reason": "Destination already exists"
+                    })
+                    continue
+                
+                # Move file
+                shutil.move(source_path, dest_path)
+                
+                # Update database path
+                new_file_path = os.path.join("./uploaded_docs", study_topic_id, filename)
+                async with aiosqlite.connect(DB_PATH) as update_db:
+                    await update_db.execute("""
+                        UPDATE content_items 
+                        SET file_path = ? 
+                        WHERE study_topic_id = ? AND file_path = ?
+                    """, (new_file_path, study_topic_id, file_path))
+                    await update_db.commit()
+                
+                migration_results["migrated"].append({
+                    "file": filename,
+                    "topic_id": study_topic_id,
+                    "from": source_path,
+                    "to": dest_path
+                })
+                
+                logger.info(f"✅ Migrated {filename} to topic {study_topic_id[:8]}")
+                
+            except Exception as e:
+                migration_results["errors"].append({
+                    "file": filename if 'filename' in locals() else 'unknown',
+                    "topic_id": study_topic_id,
+                    "error": str(e)
+                })
+                logger.error(f"❌ Failed to migrate {filename}: {e}")
+        
+        logger.info(f"🎉 Migration completed: {len(migration_results['migrated'])} migrated, {len(migration_results['skipped'])} skipped, {len(migration_results['errors'])} errors")
+        
+        return {
+            "status": "completed",
+            "summary": {
+                "migrated": len(migration_results["migrated"]),
+                "skipped": len(migration_results["skipped"]),
+                "errors": len(migration_results["errors"])
+            },
+            "details": migration_results
+        }
+        
+    except Exception as e:
+        logger.error(f"Migration failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Migration failed: {str(e)}")
+
 @app.post("/documents/upload", tags=["Knowledge Upload"])
 async def upload_documents(
     background_tasks: BackgroundTasks,
@@ -521,8 +664,12 @@ async def upload_documents(
         if ext not in {".pdf", ".docx", ".xls", ".xlsx"}:
             raise HTTPException(status_code=400, detail=f"File type {ext} not supported.")
         
-        # Save file
-        file_path = os.path.join(UPLOAD_DIR, file.filename)
+        # Create study topic specific folder
+        topic_upload_dir = os.path.join(UPLOAD_DIR, study_topic_id)
+        os.makedirs(topic_upload_dir, exist_ok=True)
+        
+        # Save file in topic-specific folder
+        file_path = os.path.join(topic_upload_dir, file.filename)
         with open(file_path, "wb") as f:
             shutil.copyfileobj(file.file, f)
         saved_paths.append((file.filename, file_path))
@@ -550,10 +697,14 @@ async def upload_documents(
             await process_uploaded_documents(saved_paths, topic_rag, callback_url, study_topic_id, content_items)
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "done"
+            # Send WebSocket notification
+            await send_task_update(task_id, "done", f"Document processing completed for {len(saved_paths)} file(s)")
             logger.info(f"✅ [upload-{task_id[:8]}] Document processing completed successfully")
         except Exception as e:
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "failed"
+            # Send WebSocket notification for failure
+            await send_task_update(task_id, "failed", "Document processing failed", error=str(e))
             logger.error(f"💥 [upload-{task_id[:8]}] Background task failed: {e}")
     
     # Create and track the background task
@@ -721,10 +872,14 @@ async def process_webpage(
             await process_webpage_background(url, topic_rag, callback_url, study_topic_id, content_id)
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "done"
+            # Send WebSocket notification
+            await send_task_update(task_id, "done", f"Webpage processing completed for {url}")
             logger.info(f"✅ [webpage-{task_id[:8]}] Background processing completed successfully")
         except Exception as e:
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "failed"
+            # Send WebSocket notification for failure
+            await send_task_update(task_id, "failed", f"Webpage processing failed for {url}", error=str(e))
             logger.error(f"💥 [webpage-{task_id[:8]}] Background task failed: {e}")
     
     # Create and track the background task
@@ -789,6 +944,9 @@ async def process_youtube_video(
             
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "done"
+            # Send WebSocket notification
+            await send_task_update(task_id, "done", f"YouTube video processing completed for {url}")
+            logger.info(f"✅ [youtube-{task_id[:8]}] YouTube processing completed successfully")
         except Exception as e:
             total_bg = time.perf_counter() - start_bg if 'start_bg' in locals() else 0
             logger.error(f"💥 [youtube-{task_id[:8]}] Background processing failed after {total_bg:.2f}s: {str(e)}")
@@ -796,6 +954,8 @@ async def process_youtube_video(
             
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "failed"
+            # Send WebSocket notification for failure
+            await send_task_update(task_id, "failed", f"YouTube video processing failed for {url}", error=str(e))
     
     # Create and track the background task
     task = asyncio.create_task(process_with_tracking())
@@ -983,6 +1143,9 @@ async def query_rag_async(
             
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "done"
+            # Send WebSocket notification
+            await send_task_update(task_id, "done", f"Query processing completed")
+            logger.info(f"✅ [async-{task_id[:8]}] Query processing completed successfully")
         except Exception as e:
             total_bg = time.perf_counter() - start_bg if 'start_bg' in locals() else 0
             logger.error(f"💥 [async-{task_id[:8]}] Background query failed after {total_bg:.2f}s: {str(e)}")
@@ -990,6 +1153,8 @@ async def query_rag_async(
             
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "failed"
+            # Send WebSocket notification for failure
+            await send_task_update(task_id, "failed", f"Query processing failed", error=str(e))
     
     # Create and track the background task
     task = asyncio.create_task(process_with_tracking())
@@ -1104,9 +1269,14 @@ async def interpret_image(
             await process_image_background(file_path, prompt, image.filename, openai_client, topic_rag, callback_url, study_topic_id, content_id)
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "done"
+            # Send WebSocket notification
+            await send_task_update(task_id, "done", f"Image processing completed for {image.filename}")
+            logger.info(f"✅ [image-{task_id[:8]}] Image processing completed successfully")
         except Exception as e:
             with TASK_LOCK:
                 TASK_STATUS[task_id] = "failed"
+            # Send WebSocket notification for failure
+            await send_task_update(task_id, "failed", f"Image processing failed for {image.filename}", error=str(e))
             logger.error(f"[{task_id}] Background task failed: {e}")
     
     # Create and track the background task

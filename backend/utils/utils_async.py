@@ -944,6 +944,16 @@ Transcript:
             logger.info(f"🔕 [yt-{short_id}] No callback URL provided")
             callback_time = 0
 
+        # Send WebSocket notification
+        try:
+            # Import send_task_update from main module
+            import sys
+            if 'main' in sys.modules:
+                send_task_update = sys.modules['main'].send_task_update
+                await send_task_update(task_id, "done", f"YouTube video processing completed (Video ID: {video_id})")
+        except Exception as ws_error:
+            logger.warning(f"📺 [yt-{short_id}] Failed to send WebSocket notification: {ws_error}")
+
         # Final summary
         logger.info(f"🎉 [yt-{short_id}] YouTube processing completed successfully:")
         logger.info(f"   ⏱️  Total time: {total:.2f}s")
