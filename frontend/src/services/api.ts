@@ -99,6 +99,30 @@ interface StudyTopicMindmapResponse {
   cached: boolean
 }
 
+interface LectureRequest {
+  language: string
+  focus_topic?: string
+}
+
+interface StudyTopicLectureResponse {
+  topic_id: string
+  topic_name: string
+  topic_description: string
+  lecture: string
+  lecture_speech: string
+  language: string
+  focus_topic?: string
+  content_items_processed: number
+  total_content_length: number
+  total_content_tokens: number
+  lecture_length: number
+  lecture_speech_length: number
+  processing_time_seconds: number
+  total_time_seconds: number
+  generated_at: number
+  cached: boolean
+}
+
 class ApiService {
   private async request<T>(
     endpoint: string,
@@ -183,6 +207,14 @@ class ApiService {
   async generateStudyTopicMindmap(topicId: string): Promise<StudyTopicMindmapResponse> {
     const response = await this.request<StudyTopicMindmapResponse>(`/study-topics/${topicId}/mindmap`)
     return response as unknown as StudyTopicMindmapResponse
+  }
+
+  async generateStudyTopicLecture(topicId: string, lectureRequest: LectureRequest): Promise<StudyTopicLectureResponse> {
+    const response = await this.request<StudyTopicLectureResponse>(`/study-topics/${topicId}/lecture`, {
+      method: 'POST',
+      body: JSON.stringify(lectureRequest),
+    })
+    return response as unknown as StudyTopicLectureResponse
   }
 
   // === Knowledge Upload Methods ===
@@ -318,6 +350,13 @@ class ApiService {
     return response as unknown as McpStatusResponse
   }
 
+  // === API Status ===
+
+  async getApiStatus(): Promise<ApiStatusResponse> {
+    const response = await this.request<ApiStatusResponse>('/api-status')
+    return response as unknown as ApiStatusResponse
+  }
+
   // === Content Management ===
 
   async deleteContent(contentId: string): Promise<DeleteContentResponse> {
@@ -325,6 +364,45 @@ class ApiService {
       method: 'DELETE',
     })
     return response as unknown as DeleteContentResponse
+  }
+
+  // === Text-to-Speech Methods ===
+
+  async listVoices(): Promise<VoicesResponse> {
+    const response = await this.request<VoicesResponse>('/tts/voices')
+    return response as unknown as VoicesResponse
+  }
+
+  async textToSpeech(ttsRequest: TTSRequest): Promise<Blob> {
+    const url = `${API_BASE_URL}/tts/text-to-speech`
+    
+    const config: RequestInit = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(ttsRequest),
+    }
+    
+    try {
+      const response = await fetch(url, config)
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'TTS generation failed')
+      }
+      
+      // Return the audio blob directly
+      return await response.blob()
+    } catch (error) {
+      console.error('TTS Error:', error)
+      throw error
+    }
+  }
+
+  async getVoiceSettings(voiceType: string = 'default'): Promise<VoiceSettingsResponse> {
+    const response = await this.request<VoiceSettingsResponse>(`/tts/voice-settings/${voiceType}`)
+    return response as unknown as VoiceSettingsResponse
   }
 }
 
@@ -395,6 +473,59 @@ interface DeleteContentResponse {
   file_deleted: boolean
 }
 
+interface ApiStatusResponse {
+  openai_configured: boolean
+  elevenlabs_configured: boolean
+  elevenlabs_key_length: number
+  tts_available: boolean
+}
+
+// === Text-to-Speech Types ===
+interface TTSRequest {
+  text: string
+  voice_id: string
+  model_id?: string
+  voice_settings?: {
+    stability?: number
+    similarity_boost?: number
+    style?: number
+    use_speaker_boost?: boolean
+  }
+  output_format?: string
+  language_code?: string
+  enable_logging?: boolean
+}
+
+interface VoiceInfo {
+  voice_id: string
+  name: string
+  category: string
+  description: string
+  preview_url?: string
+  settings: any
+  labels: any
+  available_for_tiers: string[]
+  high_quality_base_model_ids: string[]
+}
+
+interface VoicesResponse {
+  status: string
+  total_voices: number
+  voices: VoiceInfo[]
+  processing_time_seconds: number
+}
+
+interface VoiceSettingsResponse {
+  voice_type: string
+  settings: {
+    stability: number
+    similarity_boost: number
+    style: number
+    use_speaker_boost: boolean
+  }
+  description: string
+}
+
 export type {
   StudyTopic,
   CreateStudyTopicRequest,
@@ -405,10 +536,17 @@ export type {
   StudyTopicContentResponse,
   StudyTopicSummaryResponse,
   StudyTopicMindmapResponse,
+  LectureRequest,
+  StudyTopicLectureResponse,
   UploadDocumentsResponse,
   ProcessWebpageResponse,
   ProcessYouTubeResponse,
   TaskStatusResponse,
   McpStatusResponse,
-  DeleteContentResponse
+  DeleteContentResponse,
+  ApiStatusResponse,
+  TTSRequest,
+  VoiceInfo,
+  VoicesResponse,
+  VoiceSettingsResponse
 }

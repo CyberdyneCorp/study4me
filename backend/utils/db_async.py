@@ -31,6 +31,11 @@ async def init_db():
             summary_generated_at TIMESTAMP,
             mindmap TEXT,
             mindmap_generated_at TIMESTAMP,
+            lecture TEXT,
+            lecture_speech TEXT,
+            lecture_language TEXT,
+            lecture_customization TEXT,
+            lecture_generated_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -91,7 +96,7 @@ async def get_study_topic(topic_id: str):
     """Get a study topic by ID"""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute("""
-        SELECT topic_id, name, description, use_knowledge_graph, summary, summary_generated_at, mindmap, mindmap_generated_at, created_at, updated_at 
+        SELECT topic_id, name, description, use_knowledge_graph, summary, summary_generated_at, mindmap, mindmap_generated_at, lecture, lecture_speech, lecture_language, lecture_customization, lecture_generated_at, created_at, updated_at 
         FROM study_topics WHERE topic_id = ?
         """, (topic_id,)) as cursor:
             row = await cursor.fetchone()
@@ -105,8 +110,13 @@ async def get_study_topic(topic_id: str):
                     "summary_generated_at": row[5],
                     "mindmap": row[6],
                     "mindmap_generated_at": row[7],
-                    "created_at": row[8],
-                    "updated_at": row[9]
+                    "lecture": row[8],
+                    "lecture_speech": row[9],
+                    "lecture_language": row[10],
+                    "lecture_customization": row[11],
+                    "lecture_generated_at": row[12],
+                    "created_at": row[13],
+                    "updated_at": row[14]
                 }
             return None
 
@@ -114,7 +124,7 @@ async def list_study_topics(limit: int = 100, offset: int = 0):
     """List all study topics with pagination"""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute("""
-        SELECT topic_id, name, description, use_knowledge_graph, summary, summary_generated_at, mindmap, mindmap_generated_at, created_at, updated_at 
+        SELECT topic_id, name, description, use_knowledge_graph, summary, summary_generated_at, mindmap, mindmap_generated_at, lecture, lecture_speech, lecture_language, lecture_customization, lecture_generated_at, created_at, updated_at 
         FROM study_topics 
         ORDER BY created_at DESC 
         LIMIT ? OFFSET ?
@@ -131,8 +141,13 @@ async def list_study_topics(limit: int = 100, offset: int = 0):
                     "summary_generated_at": row[5],
                     "mindmap": row[6],
                     "mindmap_generated_at": row[7],
-                    "created_at": row[8],
-                    "updated_at": row[9]
+                    "lecture": row[8],
+                    "lecture_speech": row[9],
+                    "lecture_language": row[10],
+                    "lecture_customization": row[11],
+                    "lecture_generated_at": row[12],
+                    "created_at": row[13],
+                    "updated_at": row[14]
                 })
             return topics
 
@@ -223,6 +238,16 @@ async def save_study_topic_mindmap(topic_id: str, mindmap: str):
         SET mindmap = ?, mindmap_generated_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
         WHERE topic_id = ?
         """, (mindmap, topic_id))
+        await db.commit()
+
+async def save_study_topic_lecture(topic_id: str, lecture: str, lecture_speech: str, language: str, customization: str = None):
+    """Save or update a study topic lecture"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+        UPDATE study_topics 
+        SET lecture = ?, lecture_speech = ?, lecture_language = ?, lecture_customization = ?, lecture_generated_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+        WHERE topic_id = ?
+        """, (lecture, lecture_speech, language, customization, topic_id))
         await db.commit()
 
 # === Content Items Functions ===

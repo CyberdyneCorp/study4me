@@ -33,7 +33,7 @@
   import { createEventDispatcher, onMount } from 'svelte'
   import Button from './Button.svelte'
   import { apiService } from '../services/api'
-  import type { QueryResponse, ContentItem, StudyTopicSummaryResponse, StudyTopicMindmapResponse, DeleteContentResponse } from '../services/api'
+  import type { QueryResponse, ContentItem, StudyTopicSummaryResponse, StudyTopicMindmapResponse, StudyTopicLectureResponse, LectureRequest, DeleteContentResponse, VoicesResponse, VoiceInfo, TTSRequest } from '../services/api'
   import mermaid from 'mermaid'
   
   // Props passed from parent component
@@ -68,6 +68,17 @@
   let isLoadingMindmap = false
   let mindmapErrorMessage = ''
 
+  // Lecture/Podcast options modal state
+  let isPodcastOptionsModalOpen = false
+  let selectedLanguage = 'english'
+  let focusTopic = ''
+
+  // Lecture modal state
+  let isLectureModalOpen = false
+  let lectureData: StudyTopicLectureResponse | null = null
+  let isLoadingLecture = false
+  let lectureErrorMessage = ''
+
   // Pan and zoom state for mindmap
   let mindmapScale = 1
   let mindmapTranslateX = 0
@@ -80,7 +91,14 @@
   let isReferenceModalOpen = false
   let selectedReference: ContentItem | null = null
 
-  // Initialize Mermaid on component mount
+  // TTS state variables
+  let voices: VoiceInfo[] = []
+  let isLoadingVoices = false
+  let selectedVoiceId = ''
+  let isGeneratingTTS = false
+  let ttsError = ''
+
+  // Initialize Mermaid and load voices on component mount
   onMount(() => {
     mermaid.initialize({
       startOnLoad: true,
@@ -88,6 +106,7 @@
       securityLevel: 'loose',
       fontFamily: 'Arial, sans-serif'
     })
+    loadVoices()
   })
 
   // Load references when modal opens and study topic changes
@@ -101,6 +120,76 @@
     errorMessage = ''
     copiedMessageId = null
     references = []
+  }
+
+  /**
+   * Loads available voices from ElevenLabs API
+   */
+  async function loadVoices() {
+    isLoadingVoices = true
+    ttsError = ''
+    
+    try {
+      const response: VoicesResponse = await apiService.listVoices()
+      voices = response.voices || []
+      
+      // Set default voice if available
+      if (voices.length > 0 && !selectedVoiceId) {
+        selectedVoiceId = voices[0].voice_id
+      }
+    } catch (error) {
+      console.error('Failed to load voices:', error)
+      ttsError = error instanceof Error ? error.message : 'Failed to load voices'
+    } finally {
+      isLoadingVoices = false
+    }
+  }
+
+  /**
+   * Generates TTS audio from lecture content
+   */
+  async function generateTTS() {
+    if (!lectureData?.lecture_speech || !selectedVoiceId) {
+      ttsError = 'No lecture content or voice selected'
+      return
+    }
+
+    isGeneratingTTS = true
+    ttsError = ''
+    
+    try {
+      const ttsRequest: TTSRequest = {
+        text: lectureData.lecture_speech,
+        voice_id: selectedVoiceId,
+        model_id: 'eleven_multilingual_v2',
+        voice_settings: {
+          stability: 0.7,
+          similarity_boost: 0.6,
+          style: 0.2,
+          use_speaker_boost: true
+        },
+        output_format: 'mp3_44100_128',
+        enable_logging: true
+      }
+      
+      const audioBlob = await apiService.textToSpeech(ttsRequest)
+      
+      // Create download link
+      const url = URL.createObjectURL(audioBlob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${lectureData.topic_name.replace(/[^a-zA-Z0-9]/g, '_')}_lecture_${lectureData.language}.mp3`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+    } catch (error) {
+      console.error('Failed to generate TTS:', error)
+      ttsError = error instanceof Error ? error.message : 'Failed to generate TTS'
+    } finally {
+      isGeneratingTTS = false
+    }
   }
 
   /**
@@ -224,6 +313,70 @@
     mindmapTranslateX = 0
     mindmapTranslateY = 0
     isDragging = false
+  }
+
+  /**
+   * Opens the podcast options modal
+   */
+  function handleCreatePodcast() {
+    if (!studyTopicId) {
+      lectureErrorMessage = 'No study topic selected'
+      return
+    }
+    
+    // Reset options to defaults
+    selectedLanguage = 'english'
+    focusTopic = ''
+    lectureErrorMessage = ''
+    
+    isPodcastOptionsModalOpen = true
+  }
+
+  /**
+   * Closes the podcast options modal
+   */
+  function closePodcastOptionsModal() {
+    isPodcastOptionsModalOpen = false
+    selectedLanguage = 'english'
+    focusTopic = ''
+  }
+
+  /**
+   * Handles generating the lecture with selected options
+   */
+  async function handleGenerateLecture() {
+    if (!studyTopicId) {
+      lectureErrorMessage = 'No study topic selected'
+      return
+    }
+
+    isLoadingLecture = true
+    lectureErrorMessage = ''
+    closePodcastOptionsModal()
+    
+    try {
+      const lectureRequest: LectureRequest = {
+        language: selectedLanguage,
+        focus_topic: focusTopic.trim() || undefined
+      }
+      
+      lectureData = await apiService.generateStudyTopicLecture(studyTopicId, lectureRequest)
+      isLectureModalOpen = true
+    } catch (error) {
+      console.error('Failed to generate lecture:', error)
+      lectureErrorMessage = error instanceof Error ? error.message : 'Failed to generate lecture'
+    } finally {
+      isLoadingLecture = false
+    }
+  }
+
+  /**
+   * Closes the lecture modal
+   */
+  function closeLectureModal() {
+    isLectureModalOpen = false
+    lectureData = null
+    lectureErrorMessage = ''
   }
 
   /**
@@ -889,13 +1042,20 @@
           <div class="flex flex-col gap-3">
             
             <!-- Create Podcast Button -->
-            <!-- TODO: Implement podcast generation functionality -->
-            <button class="w-full h-12 p-3 border-2 border-black bg-brand-pink text-white cursor-pointer font-mono font-bold text-sm flex items-center justify-center gap-2 hover:bg-opacity-90">
-              <!-- Play icon for podcast -->
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
-              </svg>
-              Create Podcast
+            <button 
+              class="w-full h-12 p-3 border-2 border-black bg-brand-pink text-white cursor-pointer font-mono font-bold text-sm flex items-center justify-center gap-2 hover:bg-opacity-90 {isLoadingLecture ? 'opacity-50 cursor-not-allowed' : ''}"
+              on:click={handleCreatePodcast}
+              disabled={isLoadingLecture || !studyTopicId}
+            >
+              <!-- Play icon for podcast or loading spinner -->
+              {#if isLoadingLecture}
+                <div class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+              {:else}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+                </svg>
+              {/if}
+              {isLoadingLecture ? 'Generating...' : 'Create Podcast'}
             </button>
             
             <!-- Create Mindmap Button -->
@@ -951,6 +1111,13 @@
             {#if mindmapErrorMessage}
               <div class="p-2 bg-red-100 border-2 border-red-500 text-red-700 text-xs">
                 <strong>Error:</strong> {mindmapErrorMessage}
+              </div>
+            {/if}
+
+            <!-- Lecture error message -->
+            {#if lectureErrorMessage}
+              <div class="p-2 bg-red-100 border-2 border-red-500 text-red-700 text-xs">
+                <strong>Error:</strong> {lectureErrorMessage}
               </div>
             {/if}
           </div>
@@ -1296,6 +1463,387 @@
           <!-- Content Display -->
           <div class="bg-gray-50 border-2 border-gray-300 rounded p-4 max-h-96 overflow-y-auto">
             <pre class="whitespace-pre-wrap text-sm leading-6 font-mono text-gray-800">{selectedReference.content}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Podcast Options Modal -->
+{#if isPodcastOptionsModalOpen}
+  <div 
+    class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-[80]"
+    on:click={(e) => e.target === e.currentTarget && closePodcastOptionsModal()}
+    on:keydown={(e) => e.key === 'Escape' && closePodcastOptionsModal()}
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="podcast-options-modal-title"
+    tabindex="-1"
+  >
+    <div class="bg-white border-4 border-black w-full max-w-md flex flex-col">
+      <!-- Modal Header -->
+      <div class="flex justify-between items-center p-4 border-b-4 border-black bg-white">
+        <div>
+          <h2 id="podcast-options-modal-title" class="text-xl font-bold font-mono text-black mb-1">
+            Podcast Options
+          </h2>
+          <p class="text-sm text-gray-600">
+            Customize your lecture generation
+          </p>
+        </div>
+        <button 
+          class="bg-brand-pink text-white border-2 border-black rounded px-3 py-2 font-mono font-bold cursor-pointer text-lg hover:bg-opacity-90"
+          on:click={closePodcastOptionsModal}
+          aria-label="Close options modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6">
+        <!-- Language Selection -->
+        <div class="mb-6">
+          <label for="language-select" class="block text-sm font-bold font-mono text-black mb-2">
+            Output Language
+          </label>
+          <select 
+            id="language-select"
+            bind:value={selectedLanguage}
+            class="w-full p-3 border-2 border-black font-mono text-sm bg-white"
+          >
+            <option value="english">English</option>
+            <option value="portuguese">Portuguese</option>
+            <option value="spanish">Spanish</option>
+            <option value="french">French</option>
+            <option value="german">German</option>
+            <option value="italian">Italian</option>
+          </select>
+        </div>
+
+        <!-- Focus Topic -->
+        <div class="mb-6">
+          <label for="focus-topic" class="block text-sm font-bold font-mono text-black mb-2">
+            Focus Topic (Optional)
+          </label>
+          <input 
+            id="focus-topic"
+            type="text"
+            bind:value={focusTopic}
+            placeholder="e.g., machine learning algorithms, historical analysis..."
+            class="w-full p-3 border-2 border-black font-mono text-sm"
+            maxlength="200"
+          />
+          <p class="text-xs text-gray-600 mt-2">
+            Specify a particular aspect to emphasize in the lecture
+          </p>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex gap-3">
+          <button 
+            class="flex-1 bg-gray-200 text-black border-2 border-black rounded px-4 py-3 font-mono font-bold cursor-pointer hover:bg-gray-300"
+            on:click={closePodcastOptionsModal}
+          >
+            Cancel
+          </button>
+          <button 
+            class="flex-1 bg-brand-blue text-white border-2 border-black rounded px-4 py-3 font-mono font-bold cursor-pointer hover:bg-opacity-90"
+            on:click={handleGenerateLecture}
+          >
+            Generate Lecture
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Lecture Modal -->
+{#if isLectureModalOpen && lectureData}
+  <div 
+    class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-[70]"
+    on:click={(e) => e.target === e.currentTarget && closeLectureModal()}
+    on:keydown={(e) => e.key === 'Escape' && closeLectureModal()}
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="lecture-modal-title"
+    tabindex="-1"
+  >
+    <div class="bg-white border-4 border-black w-full max-w-4xl max-h-[90vh] flex flex-col">
+      <!-- Lecture Modal Header -->
+      <div class="flex justify-between items-center p-4 border-b-4 border-black bg-white">
+        <div>
+          <h2 id="lecture-modal-title" class="text-xl font-bold font-mono text-black mb-1">
+            📚 Generated Lecture
+          </h2>
+          <p class="text-sm text-gray-600">
+            University-level lecture for {lectureData.topic_name}
+          </p>
+          <p class="text-xs text-blue-600 mt-1">
+            Language: {lectureData.language.charAt(0).toUpperCase() + lectureData.language.slice(1)}
+            {#if lectureData.focus_topic}
+              • Focus: {lectureData.focus_topic}
+            {/if}
+          </p>
+        </div>
+        <button 
+          class="bg-brand-pink text-white border-2 border-black rounded px-3 py-2 font-mono font-bold cursor-pointer text-lg hover:bg-opacity-90"
+          on:click={closeLectureModal}
+          aria-label="Close lecture modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- Lecture Modal Body -->
+      <div class="flex-1 overflow-y-auto p-6">
+        <!-- Lecture metadata -->
+        <div class="bg-gray-50 border-2 border-gray-300 p-4 mb-6 text-sm">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <span class="font-bold text-gray-700">Content Items:</span>
+              <div class="text-gray-600">{lectureData.content_items_processed}</div>
+            </div>
+            <div>
+              <span class="font-bold text-gray-700">Total Length:</span>
+              <div class="text-gray-600">{lectureData.total_content_length.toLocaleString()} chars</div>
+            </div>
+            <div>
+              <span class="font-bold text-gray-700">Lecture Length:</span>
+              <div class="text-gray-600">{lectureData.lecture_length.toLocaleString()} chars</div>
+            </div>
+            <div>
+              <span class="font-bold text-gray-700">Processing Time:</span>
+              <div class="text-gray-600">{lectureData.processing_time_seconds}s</div>
+            </div>
+          </div>
+          <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <span class="font-bold text-gray-700">Speech Version:</span>
+              <div class="text-gray-600">{lectureData.lecture_speech_length?.toLocaleString() || 'N/A'} chars</div>
+              <div class="text-xs text-blue-600 mt-1">Optimized for text-to-speech (ElevenLabs)</div>
+            </div>
+            {#if lectureData.cached}
+              <div class="text-blue-600 text-xs flex items-center">
+                💾 Cached result - generated previously
+              </div>
+            {/if}
+          </div>
+        </div>
+
+        <!-- Lecture content -->
+        <div class="prose max-w-none">
+          <div class="text-gray-800 leading-relaxed">
+            {@html formatResponseText(lectureData.lecture)}
+          </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="mt-6 pt-4 border-t-2 border-gray-200">
+          <!-- TTS Section -->
+          <div class="mb-6 p-4 bg-gray-50 border-2 border-gray-300 rounded">
+            <h4 class="text-lg font-bold font-mono text-black mb-3">🎙️ Generate Audio</h4>
+            
+            <!-- Voice Selection -->
+            <div class="mb-4">
+              <label class="block text-sm font-bold font-mono text-black mb-2">
+                Select Voice
+              </label>
+              {#if isLoadingVoices}
+                <div class="text-sm text-gray-600 p-3">Loading voices...</div>
+              {:else if voices.length > 0}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-64 overflow-y-auto border-2 border-gray-300 p-3 bg-white">
+                  {#each voices as voice}
+                    <div 
+                      class="border-2 border-black p-3 cursor-pointer transition-all duration-200 {selectedVoiceId === voice.voice_id ? 'bg-brand-blue text-white' : 'bg-white hover:bg-gray-50'}"
+                      on:click={() => selectedVoiceId = voice.voice_id}
+                      on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && (selectedVoiceId = voice.voice_id)}
+                      role="button"
+                      tabindex="0"
+                      aria-label="Select voice {voice.name}"
+                    >
+                      <!-- Voice name and category -->
+                      <div class="font-bold text-sm mb-1 {selectedVoiceId === voice.voice_id ? 'text-white' : 'text-black'}">
+                        {voice.name}
+                      </div>
+                      <div class="text-xs uppercase mb-2 {selectedVoiceId === voice.voice_id ? 'text-blue-100' : 'text-gray-600'}">
+                        {voice.category}
+                      </div>
+                      
+                      <!-- Voice details from labels -->
+                      {#if voice.labels}
+                        <div class="text-xs space-y-1">
+                          {#if voice.labels.gender}
+                            <div class="{selectedVoiceId === voice.voice_id ? 'text-blue-100' : 'text-gray-600'}">
+                              👤 {voice.labels.gender}
+                              {#if voice.labels.age} • {voice.labels.age}{/if}
+                            </div>
+                          {/if}
+                          {#if voice.labels.accent}
+                            <div class="{selectedVoiceId === voice.voice_id ? 'text-blue-100' : 'text-gray-600'}">
+                              🌍 {voice.labels.accent} accent
+                            </div>
+                          {/if}
+                          {#if voice.labels.description}
+                            <div class="{selectedVoiceId === voice.voice_id ? 'text-blue-100' : 'text-gray-600'}">
+                              ✨ {voice.labels.description}
+                            </div>
+                          {/if}
+                          {#if voice.labels.use_case}
+                            <div class="{selectedVoiceId === voice.voice_id ? 'text-blue-100' : 'text-gray-600'}">
+                              🎯 {voice.labels.use_case.replace(/_/g, ' ')}
+                            </div>
+                          {/if}
+                          {#if voice.labels.language}
+                            <div class="{selectedVoiceId === voice.voice_id ? 'text-blue-100' : 'text-gray-600'}">
+                              🗣️ {voice.labels.language.toUpperCase()}
+                            </div>
+                          {/if}
+                        </div>
+                      {/if}
+                      
+                      <!-- Voice description if available -->
+                      {#if voice.description}
+                        <div class="text-xs mt-2 {selectedVoiceId === voice.voice_id ? 'text-blue-100' : 'text-gray-500'} line-clamp-2">
+                          {voice.description}
+                        </div>
+                      {/if}
+                      
+                      <!-- Preview button -->
+                      {#if voice.preview_url}
+                        <button 
+                          class="mt-2 text-xs bg-gray-200 hover:bg-gray-300 border border-gray-400 rounded px-2 py-1 font-mono {selectedVoiceId === voice.voice_id ? 'text-black' : ''}"
+                          on:click|stopPropagation={() => {
+                            const audio = new Audio(voice.preview_url);
+                            audio.play().catch(e => console.error('Failed to play preview:', e));
+                          }}
+                          title="Play voice preview"
+                        >
+                          🔊 Preview
+                        </button>
+                      {/if}
+                    </div>
+                  {/each}
+                </div>
+                
+                <!-- Selected voice info -->
+                {#if selectedVoiceId}
+                  {@const selectedVoice = voices.find(v => v.voice_id === selectedVoiceId)}
+                  {#if selectedVoice}
+                    <div class="mt-3 p-3 bg-blue-50 border-2 border-blue-300 text-sm">
+                      <strong>Selected:</strong> {selectedVoice.name}
+                      {#if selectedVoice.labels?.gender && selectedVoice.labels?.accent}
+                        ({selectedVoice.labels.gender}, {selectedVoice.labels.accent} accent)
+                      {/if}
+                    </div>
+                  {/if}
+                {/if}
+              {:else}
+                <div class="text-sm text-red-600 p-3">No voices available</div>
+              {/if}
+            </div>
+
+            <!-- TTS Generation Button -->
+            <div class="flex gap-3 items-center">
+              <button 
+                class="bg-green-600 text-white border-2 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer hover:bg-opacity-90 flex items-center gap-2 {isGeneratingTTS || !selectedVoiceId || !lectureData?.lecture_speech ? 'opacity-50 cursor-not-allowed' : ''}"
+                on:click={generateTTS}
+                disabled={isGeneratingTTS || !selectedVoiceId || !lectureData?.lecture_speech}
+                title="Generate and download MP3 audio of the lecture"
+              >
+                {#if isGeneratingTTS}
+                  <div class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+                  Generating Audio...
+                {:else}
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                  </svg>
+                  Generate Audio
+                {/if}
+              </button>
+              {#if !isLoadingVoices && voices.length === 0}
+                <button 
+                  class="bg-yellow-500 text-white border-2 border-black rounded px-3 py-2 font-mono font-bold cursor-pointer hover:bg-opacity-90"
+                  on:click={loadVoices}
+                  title="Retry loading voices"
+                >
+                  Retry
+                </button>
+              {/if}
+            </div>
+
+            <!-- TTS Error Message -->
+            {#if ttsError}
+              <div class="mt-3 p-3 bg-red-100 border-2 border-red-500 text-red-700 text-sm">
+                <strong>TTS Error:</strong> {ttsError}
+              </div>
+            {/if}
+
+            <div class="mt-3 text-xs text-gray-600">
+              💡 <strong>Note:</strong> Audio generation uses the speech-optimized version of the lecture for best results.
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-3 mb-4">
+            <button 
+              class="bg-brand-blue text-white border-2 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer hover:bg-opacity-90"
+              on:click={() => lectureData && copyToClipboard(lectureData.lecture, 'lecture')}
+            >
+              {copiedMessageId === 'lecture' ? 'Copied!' : 'Copy Lecture'}
+            </button>
+            <button 
+              class="bg-purple-500 text-white border-2 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer hover:bg-opacity-90"
+              on:click={() => lectureData && copyToClipboard(lectureData.lecture_speech, 'lecture-speech')}
+              title="Copy speech-optimized version for text-to-speech"
+            >
+              {copiedMessageId === 'lecture-speech' ? 'Copied!' : 'Copy for TTS'}
+            </button>
+          </div>
+          
+          <div class="flex flex-wrap gap-3">
+            <button 
+              class="bg-green-500 text-white border-2 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer hover:bg-opacity-90"
+              on:click={() => {
+                if (lectureData) {
+                  const blob = new Blob([lectureData.lecture], { type: 'text/plain' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${lectureData.topic_name.replace(/[^a-zA-Z0-9]/g, '_')}_lecture_${lectureData.language}.txt`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }
+              }}
+            >
+              Download Lecture
+            </button>
+            <button 
+              class="bg-orange-500 text-white border-2 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer hover:bg-opacity-90"
+              on:click={() => {
+                if (lectureData) {
+                  const blob = new Blob([lectureData.lecture_speech], { type: 'text/plain' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${lectureData.topic_name.replace(/[^a-zA-Z0-9]/g, '_')}_speech_${lectureData.language}.txt`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }
+              }}
+              title="Download speech-optimized version for text-to-speech"
+            >
+              Download for TTS
+            </button>
+          </div>
+          
+          <div class="mt-3 text-xs text-gray-600">
+            💡 <strong>TTS Version:</strong> Use "Copy for TTS" or "Download for TTS" with ElevenLabs API for optimal audio generation
           </div>
         </div>
       </div>

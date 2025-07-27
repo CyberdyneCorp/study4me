@@ -9,6 +9,7 @@ import uuid
 import signal
 import sys
 from typing import List, Optional, Dict, Any
+import time
 from contextlib import asynccontextmanager
 from threading import Lock
 
@@ -33,7 +34,8 @@ from lightrag.kg.shared_storage import initialize_pipeline_status
 
 from openai import OpenAI, AuthenticationError, RateLimitError, APIError
 from utils.utils_async import process_uploaded_documents, process_webpage_background, process_image_background, process_query_background, process_youtube_background, count_tokens, query_with_context
-from utils.utils_sync import summarize_study_topic_content_logic, generate_study_topic_mindmap_logic, handle_openai_error
+from utils.utils_sync import summarize_study_topic_content_logic, generate_study_topic_mindmap_logic, generate_study_topic_lecture_logic, handle_openai_error
+from utils.tts_utils import list_voices, text_to_speech, validate_voice_settings, get_recommended_voice_settings, ElevenLabsError
 from utils.db_async import (init_db, fetch_task_result, create_study_topic, get_study_topic, 
                            list_study_topics, update_study_topic, delete_study_topic, save_study_topic_summary,
                            save_study_topic_mindmap, create_content_item, get_content_item, list_content_items_by_topic, 
@@ -90,8 +92,52 @@ class StudyTopicUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=1000, description="Description of the study topic")
     use_knowledge_graph: Optional[bool] = Field(None, description="Whether to use knowledge graph for this topic")
 
-# === OpenAI Key Check (Moved to lifespan for graceful failure) ===
+class LectureRequest(BaseModel):
+    language: str = Field("english", description="Output language for the lecture (english, portuguese, spanish, french, german, italian)")
+    focus_topic: Optional[str] = Field(None, max_length=200, description="Optional specific topic to focus on within the content")
+
+# === Text-to-Speech Models ===
+class TTSRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=50000, description="Text content to convert to speech")
+    voice_id: str = Field(..., description="ElevenLabs voice ID to use for TTS")
+    model_id: str = Field("eleven_multilingual_v2", description="TTS model to use (default: eleven_multilingual_v2)")
+    voice_settings: Optional[Dict[str, float]] = Field(None, description="Voice settings (stability, similarity_boost, etc.)")
+    output_format: str = Field("mp3_44100_128", description="Audio output format (default: mp3_44100_128)")
+    language_code: Optional[str] = Field(None, description="Optional language code to enforce specific language")
+    enable_logging: bool = Field(True, description="Whether to enable request logging (default: True)")
+
+class TTSResponse(BaseModel):
+    status: str = Field(..., description="Status of the TTS generation")
+    audio_size_bytes: int = Field(..., description="Size of generated audio in bytes")
+    filename: str = Field(..., description="Generated filename for the audio")
+    content_type: str = Field(..., description="MIME type of the audio file")
+    processing_time_seconds: float = Field(..., description="Time taken to generate the audio")
+    voice_id: str = Field(..., description="Voice ID used for generation")
+    model_id: str = Field(..., description="Model used for generation")
+    output_format: str = Field(..., description="Audio output format used")
+    language_code: Optional[str] = Field(None, description="Language code used if specified")
+    enable_logging: bool = Field(..., description="Whether logging was enabled")
+
+class VoiceInfo(BaseModel):
+    voice_id: str
+    name: str
+    category: str
+    description: Optional[str]
+    preview_url: Optional[str]
+    settings: Optional[Dict[str, Any]]
+    labels: Dict[str, Any]
+    available_for_tiers: List[str]
+    high_quality_base_model_ids: List[str]
+
+class VoicesResponse(BaseModel):
+    status: str = Field(..., description="Status of the voice listing")
+    total_voices: int = Field(..., description="Total number of available voices")
+    voices: List[VoiceInfo] = Field(..., description="List of available voices")
+    processing_time_seconds: float = Field(..., description="Time taken to fetch voices")
+
+# === API Keys Check (Moved to lifespan for graceful failure) ===
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 
 async def validate_openai_api_key(api_key: str) -> bool:
     """Validate OpenAI API key by making a test call"""
@@ -165,6 +211,19 @@ async def lifespan(app: FastAPI):
         raise RuntimeError("Invalid OpenAI API key. Server startup aborted.")
     logger.info("✅ OpenAI API key validated successfully.")
     
+    # Check ElevenLabs API key
+    logger.info("🎙️ Checking ElevenLabs API key...")
+    if not ELEVENLABS_API_KEY:
+        logger.warning("⚠️ ELEVENLABS_API_KEY environment variable is not set!")
+        logger.warning("Text-to-speech functionality will not be available.")
+        logger.warning("To enable TTS: Add ELEVENLABS_API_KEY=your_key to config.env")
+    elif ELEVENLABS_API_KEY in ["your_elevenlabs_api_key_here", "test-key"]:
+        logger.warning("⚠️ ELEVENLABS_API_KEY is set to a placeholder value!")
+        logger.warning("Text-to-speech functionality will not be available.")
+        logger.warning("Please set your actual ElevenLabs API key in config.env")
+    else:
+        logger.info("✅ ElevenLabs API key configured (TTS features available).")
+    
     logger.info("🧠 Initializing LightRAG...")
     rag = None
     try:
@@ -185,6 +244,10 @@ async def lifespan(app: FastAPI):
     openai_client = OpenAI(api_key=OPENAI_API_KEY)
     app.state.openai_client = openai_client
     logger.info("✅ OpenAI client initialized.")
+    
+    # Store ElevenLabs API key in app state
+    app.state.elevenlabs_api_key = ELEVENLABS_API_KEY
+    logger.info("🔧 ElevenLabs API key stored in app state.")
     
     logger.info("🎉 Study4Me backend server startup complete!")
     
@@ -257,6 +320,9 @@ def get_rag(request: Request) -> LightRAG:
 
 def get_openai_client(request: Request) -> OpenAI:
     return request.app.state.openai_client
+
+def get_elevenlabs_api_key(request: Request) -> str:
+    return getattr(request.app.state, 'elevenlabs_api_key', None) or ""
 
 # Topic-specific LightRAG instances cache
 _topic_rag_cache = {}
@@ -409,6 +475,16 @@ def root():
 def readiness():
     """Kubernetes readiness probe endpoint."""
     return {"status": "ready", "message": "Service is ready to accept requests"}
+
+@app.get("/api-status", tags=["Debug"])
+def get_api_status(elevenlabs_key: str = Depends(get_elevenlabs_api_key)):
+    """Get API keys status for debugging."""
+    return {
+        "openai_configured": bool(OPENAI_API_KEY and OPENAI_API_KEY != "your_openai_api_key_here"),
+        "elevenlabs_configured": bool(elevenlabs_key and elevenlabs_key not in ["your_elevenlabs_api_key_here", "test-key"]),
+        "elevenlabs_key_length": len(elevenlabs_key) if elevenlabs_key else 0,
+        "tts_available": bool(elevenlabs_key and elevenlabs_key not in ["your_elevenlabs_api_key_here", "test-key"])
+    }
 
 @app.post("/debug/websocket-notification", tags=["Debug"])
 async def send_debug_websocket_notification(
@@ -1655,6 +1731,20 @@ async def generate_study_topic_mindmap(
     """Generate a Mermaid mindmap code for all content in a specific study topic using OpenAI with SQLite caching"""
     return await generate_study_topic_mindmap_logic(topic_id, openai_client)
 
+@app.post("/study-topics/{topic_id}/lecture", tags=["Study Topics"], response_model=dict)
+async def generate_study_topic_lecture(
+    topic_id: str,
+    lecture_request: LectureRequest,
+    openai_client: OpenAI = Depends(get_openai_client)
+):
+    """Generate a comprehensive lecture about all content in a specific study topic using OpenAI with customizable language and focus"""
+    return await generate_study_topic_lecture_logic(
+        topic_id, 
+        openai_client, 
+        language=lecture_request.language,
+        focus_topic=lecture_request.focus_topic
+    )
+
 @app.delete("/content/{content_id}", tags=["Content Management"], response_model=dict)
 async def delete_content_item_by_id(content_id: str):
     """Delete a specific content item and its associated file"""
@@ -1692,3 +1782,162 @@ async def delete_content_item_by_id(content_id: str):
     except Exception as e:
         logger.error(f"❌ Error deleting content item {content_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to delete content item: {str(e)}")
+
+# === Text-to-Speech Endpoints ===
+
+@app.get("/tts/voices", tags=["Text to Speech"], response_model=VoicesResponse)
+async def get_tts_voices(
+    elevenlabs_key: str = Depends(get_elevenlabs_api_key)
+):
+    """List all available ElevenLabs voices for text-to-speech"""
+    start_time = time.perf_counter()
+    
+    try:
+        logger.info("🎙️ Fetching available TTS voices from ElevenLabs...")
+        
+        # Check if ElevenLabs API key is configured
+        if not elevenlabs_key or elevenlabs_key in ["your_elevenlabs_api_key_here", "test-key"]:
+            logger.warning("❌ ElevenLabs API key not configured")
+            raise HTTPException(
+                status_code=503, 
+                detail="Text-to-speech service is not available. ElevenLabs API key not configured."
+            )
+        
+        # Fetch voices from ElevenLabs API
+        voices = await list_voices(elevenlabs_key)
+        processing_time = time.perf_counter() - start_time
+        
+        logger.info(f"✅ Retrieved {len(voices)} voices in {processing_time:.2f}s")
+        
+        return VoicesResponse(
+            status="success",
+            total_voices=len(voices),
+            voices=[VoiceInfo(**voice) for voice in voices],
+            processing_time_seconds=round(processing_time, 2)
+        )
+        
+    except ElevenLabsError as e:
+        processing_time = time.perf_counter() - start_time
+        logger.error(f"❌ ElevenLabs API error: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"ElevenLabs API error: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        processing_time = time.perf_counter() - start_time
+        logger.error(f"❌ Error fetching TTS voices: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch voices: {str(e)}")
+
+@app.post("/tts/text-to-speech", tags=["Text to Speech"], response_model=TTSResponse)
+async def generate_text_to_speech(
+    tts_request: TTSRequest,
+    elevenlabs_key: str = Depends(get_elevenlabs_api_key)
+):
+    """Convert text to speech using ElevenLabs API"""
+    start_time = time.perf_counter()
+    
+    try:
+        logger.info(f"🎙️ Starting TTS generation:")
+        logger.info(f"   Text length: {len(tts_request.text)} characters")
+        logger.info(f"   Voice ID: {tts_request.voice_id}")
+        logger.info(f"   Model: {tts_request.model_id}")
+        logger.info(f"   Output format: {tts_request.output_format}")
+        logger.info(f"   Language: {tts_request.language_code or 'auto-detect'}")
+        logger.info(f"   Logging enabled: {tts_request.enable_logging}")
+        
+        # Check if ElevenLabs API key is configured
+        if not elevenlabs_key or elevenlabs_key in ["your_elevenlabs_api_key_here", "test-key"]:
+            logger.warning("❌ ElevenLabs API key not configured")
+            raise HTTPException(
+                status_code=503, 
+                detail="Text-to-speech service is not available. ElevenLabs API key not configured."
+            )
+        
+        # Validate voice settings if provided
+        validated_settings = None
+        if tts_request.voice_settings:
+            try:
+                validated_settings = validate_voice_settings(tts_request.voice_settings)
+                logger.info(f"   Voice settings: {validated_settings}")
+            except ValueError as e:
+                logger.error(f"❌ Invalid voice settings: {str(e)}")
+                raise HTTPException(status_code=400, detail=f"Invalid voice settings: {str(e)}")
+        
+        # Generate TTS audio
+        audio_data, filename = await text_to_speech(
+            text=tts_request.text,
+            voice_id=tts_request.voice_id,
+            api_key=elevenlabs_key,
+            model_id=tts_request.model_id,
+            voice_settings=validated_settings,
+            output_format=tts_request.output_format,
+            language_code=tts_request.language_code,
+            enable_logging=tts_request.enable_logging
+        )
+        
+        processing_time = time.perf_counter() - start_time
+        
+        logger.info(f"✅ TTS generation completed:")
+        logger.info(f"   Processing time: {processing_time:.2f}s")
+        logger.info(f"   Audio size: {len(audio_data)} bytes")
+        logger.info(f"   Filename: {filename}")
+        
+        # Create response with metadata
+        response = StreamingResponse(
+            io.BytesIO(audio_data),
+            media_type="audio/mpeg",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                "X-Audio-Size": str(len(audio_data)),
+                "X-Processing-Time": str(round(processing_time, 2)),
+                "X-Voice-ID": tts_request.voice_id,
+                "X-Model-ID": tts_request.model_id,
+                "X-Output-Format": tts_request.output_format,
+                "X-Language-Code": tts_request.language_code or "auto-detect",
+                "X-Enable-Logging": str(tts_request.enable_logging),
+                "X-Status": "success"
+            }
+        )
+        
+        return response
+        
+    except ElevenLabsError as e:
+        processing_time = time.perf_counter() - start_time
+        logger.error(f"❌ ElevenLabs API error: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"ElevenLabs API error: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        processing_time = time.perf_counter() - start_time
+        logger.error(f"❌ Error generating TTS: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate speech: {str(e)}")
+
+@app.get("/tts/voice-settings/{voice_type}", tags=["Text to Speech"], response_model=dict)
+async def get_recommended_voice_settings_endpoint(voice_type: str = "default"):
+    """Get recommended voice settings for different use cases"""
+    try:
+        logger.info(f"🔧 Getting recommended voice settings for: {voice_type}")
+        
+        settings = get_recommended_voice_settings(voice_type)
+        
+        if not settings:
+            logger.warning(f"⚠️ Unknown voice type: {voice_type}")
+            raise HTTPException(status_code=404, detail=f"Unknown voice type: {voice_type}")
+        
+        logger.info(f"✅ Retrieved voice settings for {voice_type}: {settings}")
+        
+        return {
+            "voice_type": voice_type,
+            "settings": settings,
+            "description": {
+                "default": "Balanced settings for general use",
+                "lecture": "Optimized for educational content with stable delivery",
+                "conversation": "More dynamic and expressive for dialogue",
+                "audiobook": "Very stable settings for long-form content"
+            }.get(voice_type, "Custom voice settings")
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error getting voice settings: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get voice settings: {str(e)}")
