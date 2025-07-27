@@ -1,5 +1,9 @@
 import aiosqlite
 import os
+import shutil
+import logging
+
+logger = logging.getLogger(__name__)
 
 DB_PATH = os.getenv("DB_PATH", "rag_tasks.db")
 
@@ -161,8 +165,6 @@ async def update_study_topic(topic_id: str, name: str = None, description: str =
 
 async def delete_study_topic(topic_id: str):
     """Delete a study topic and its associated content items"""
-    import os
-    import shutil
     
     async with aiosqlite.connect(DB_PATH) as db:
         # Get all content items before deletion to clean up files
@@ -185,9 +187,9 @@ async def delete_study_topic(topic_id: str):
             if os.path.exists(topic_upload_dir):
                 try:
                     shutil.rmtree(topic_upload_dir)
-                    print(f"🗑️ Deleted upload directory: {topic_upload_dir}")
+                    logger.info(f"🗑️ Deleted upload directory: {topic_upload_dir}")
                 except Exception as e:
-                    print(f"⚠️ Failed to delete upload directory {topic_upload_dir}: {e}")
+                    logger.warning(f"⚠️ Failed to delete upload directory {topic_upload_dir}: {e}")
             
             # Remove topic-specific RAG directory
             rag_dir = os.getenv("RAG_DIR", "./rag_storage")
@@ -195,9 +197,9 @@ async def delete_study_topic(topic_id: str):
             if os.path.exists(topic_rag_dir):
                 try:
                     shutil.rmtree(topic_rag_dir)
-                    print(f"🗑️ Deleted RAG directory: {topic_rag_dir}")
+                    logger.info(f"🗑️ Deleted RAG directory: {topic_rag_dir}")
                 except Exception as e:
-                    print(f"⚠️ Failed to delete RAG directory {topic_rag_dir}: {e}")
+                    logger.warning(f"⚠️ Failed to delete RAG directory {topic_rag_dir}: {e}")
             
             return True
         
@@ -294,8 +296,6 @@ async def get_content_items_count_by_topic(study_topic_id: str):
 
 async def delete_content_item(content_id: str):
     """Delete a content item, associated file, and from LightRAG knowledge graph"""
-    import os
-    import asyncio
     
     async with aiosqlite.connect(DB_PATH) as db:
         # Get content item details before deletion
@@ -316,15 +316,36 @@ async def delete_content_item(content_id: str):
                 from main import get_topic_rag
                 topic_rag = await get_topic_rag(study_topic_id)
                 if topic_rag:
-                    await asyncio.to_thread(topic_rag.adelete_by_doc_id, content_id)
-                    print(f"🗑️ Deleted from LightRAG knowledge graph: {content_id} (study topic has knowledge graph enabled)")
+                    # Check if document exists before deletion
+                    try:
+                        doc_status = await topic_rag.aget_docs_by_ids([content_id])
+                        if content_id in doc_status:
+                            # Delete the document (adelete_by_doc_id is already async, don't wrap in to_thread)
+                            await topic_rag.adelete_by_doc_id(content_id)
+                            
+                            # Clear cache to ensure consistency
+                            await topic_rag.aclear_cache()
+                            
+                            # Verify deletion success
+                            post_delete_status = await topic_rag.aget_docs_by_ids([content_id])
+                            if content_id not in post_delete_status:
+                                logger.info(f"🗑️ Successfully deleted from LightRAG: {content_id} (study topic has knowledge graph enabled)")
+                            else:
+                                logger.warning(f"⚠️ Document still exists in LightRAG after deletion: {content_id}")
+                        else:
+                            logger.info(f"📝 Document not found in LightRAG: {content_id}")
+                    except AttributeError:
+                        # Fallback if aget_docs_by_ids is not available
+                        await topic_rag.adelete_by_doc_id(content_id)
+                        await topic_rag.aclear_cache()
+                        logger.info(f"🗑️ Deleted from LightRAG knowledge graph: {content_id} (study topic has knowledge graph enabled)")
                 else:
-                    print(f"⚠️ Could not get RAG instance for study topic: {study_topic_id}")
+                    logger.warning(f"⚠️ Could not get RAG instance for study topic: {study_topic_id}")
             except Exception as e:
-                print(f"⚠️ Failed to delete from LightRAG knowledge graph: {e}")
+                logger.error(f"⚠️ Failed to delete from LightRAG knowledge graph: {e}")
                 # Continue with file/database deletion even if LightRAG deletion fails
         else:
-            print(f"📝 Skipping LightRAG deletion: study topic does not use knowledge graph")
+            logger.info(f"📝 Skipping LightRAG deletion: study topic does not use knowledge graph")
         
         # Delete from database
         cursor = await db.execute("DELETE FROM content_items WHERE content_id = ?", (content_id,))
@@ -335,9 +356,9 @@ async def delete_content_item(content_id: str):
             if file_path and os.path.exists(file_path):
                 try:
                     os.remove(file_path)
-                    print(f"🗑️ Deleted file: {file_path}")
+                    logger.info(f"🗑️ Deleted file: {file_path}")
                 except Exception as e:
-                    print(f"⚠️ Failed to delete file {file_path}: {e}")
+                    logger.warning(f"⚠️ Failed to delete file {file_path}: {e}")
             
             return True
         
