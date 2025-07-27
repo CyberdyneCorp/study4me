@@ -21,6 +21,15 @@
   // Store imports for UI state management
   import { uiStore, uiActions } from '../stores/uiStore'
   
+  // Wallet store imports
+  import { 
+    isWalletConnected, 
+    walletAddress, 
+    walletChainId, 
+    appKitState 
+  } from '../stores/appKitStore'
+  import { disconnectWallet } from '../lib/appkitService'
+  
   // MCP service import
   import { mcpService } from '../services/mcp'
   import type { McpStatusResponse } from '../services/api'
@@ -114,6 +123,33 @@
   function handleConnectWallet() {
     uiActions.openWalletModal()
   }
+
+  /**
+   * Handles wallet disconnection
+   */
+  async function handleDisconnectWallet() {
+    await disconnectWallet()
+  }
+
+  /**
+   * Format wallet address for display (show first 6 and last 4 characters)
+   */
+  function formatAddress(address: string): string {
+    if (!address) return ''
+    return `${address.slice(0, 6)}...${address.slice(-4)}`
+  }
+
+  /**
+   * Get network name from chain ID
+   */
+  function getNetworkName(chainId: number | undefined): string {
+    switch (chainId) {
+      case 1: return 'Ethereum'
+      case 137: return 'Polygon'
+      case 42161: return 'Arbitrum'
+      default: return `Chain ${chainId}`
+    }
+  }
   
   // Check MCP status on component mount
   onMount(() => {
@@ -202,17 +238,49 @@
       <span class="text-black font-mono font-bold">Dashboard</span>
       
       <!-- 
-        Connect Wallet Button
-        - Primary action button with brand blue styling
-        - Thick border for neobrutalism aesthetic
-        - Opens wallet connection modal when clicked
+        Wallet Section - Shows connection status and user info
+        - Connect button when disconnected
+        - Wallet info and disconnect when connected
       -->
-      <button 
-        on:click={handleConnectWallet}
-        class="bg-brand-blue text-white border-4 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer"
-      >
-        Connect Wallet
-      </button>
+      {#if $isWalletConnected && $walletAddress}
+        <!-- Connected Wallet Display -->
+        <div class="flex items-center gap-3">
+          <!-- Wallet Info Card -->
+          <div class="bg-green-50 border-2 border-green-500 rounded px-3 py-2">
+            <div class="flex items-center gap-2">
+              <!-- Connected indicator -->
+              <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+              
+              <!-- Wallet details -->
+              <div class="flex flex-col">
+                <span class="font-mono font-bold text-green-800 text-xs">
+                  {formatAddress($walletAddress)}
+                </span>
+                <span class="font-mono text-green-600 text-xs">
+                  {getNetworkName($walletChainId)}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Disconnect Button -->
+          <button 
+            on:click={handleDisconnectWallet}
+            class="bg-red-500 text-white border-2 border-black rounded px-3 py-1 font-mono font-bold cursor-pointer hover:bg-red-600 transition-colors text-sm"
+            title="Disconnect wallet"
+          >
+            Disconnect
+          </button>
+        </div>
+      {:else}
+        <!-- Connect Wallet Button -->
+        <button 
+          on:click={handleConnectWallet}
+          class="bg-brand-blue text-white border-4 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer hover:bg-blue-600 transition-colors"
+        >
+          Connect Wallet
+        </button>
+      {/if}
     </div>
   </div>
 </nav>

@@ -56,6 +56,14 @@
       await initializeAppKit()
     }
   })
+
+  // Auto-close modal when wallet connects successfully
+  $: if ($isWalletConnected && isOpen) {
+    console.log('Wallet connected, closing modal')
+    setTimeout(() => {
+      handleClose()
+    }, 1000) // Give user 1 second to see the connection success
+  }
   
   /**
    * Closes the wallet modal and resets form state
