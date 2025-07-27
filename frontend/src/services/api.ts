@@ -317,6 +317,15 @@ class ApiService {
     const response = await this.request<McpStatusResponse>('/mcp/status')
     return response as unknown as McpStatusResponse
   }
+
+  // === Content Management ===
+
+  async deleteContent(contentId: string): Promise<DeleteContentResponse> {
+    const response = await this.request<DeleteContentResponse>(`/content/${contentId}`, {
+      method: 'DELETE',
+    })
+    return response as unknown as DeleteContentResponse
+  }
 }
 
 export const apiService = new ApiService()
@@ -377,6 +386,15 @@ interface McpStatusResponse {
   timestamp: number
 }
 
+interface DeleteContentResponse {
+  message: string
+  content_id: string
+  title: string
+  content_type: string
+  study_topic_id: string
+  file_deleted: boolean
+}
+
 export type {
   StudyTopic,
   CreateStudyTopicRequest,
@@ -391,5 +409,6 @@ export type {
   ProcessWebpageResponse,
   ProcessYouTubeResponse,
   TaskStatusResponse,
-  McpStatusResponse
+  McpStatusResponse,
+  DeleteContentResponse
 }

@@ -161,11 +161,47 @@ async def update_study_topic(topic_id: str, name: str = None, description: str =
 
 async def delete_study_topic(topic_id: str):
     """Delete a study topic and its associated content items"""
+    import os
+    import shutil
+    
     async with aiosqlite.connect(DB_PATH) as db:
-        # Delete associated content items first (will cascade automatically due to foreign key)
+        # Get all content items before deletion to clean up files
+        async with db.execute("""
+        SELECT file_path FROM content_items 
+        WHERE study_topic_id = ? AND file_path IS NOT NULL
+        """, (topic_id,)) as cursor:
+            file_paths = await cursor.fetchall()
+        
+        # Delete from database (content items will cascade due to foreign key)
         cursor = await db.execute("DELETE FROM study_topics WHERE topic_id = ?", (topic_id,))
         await db.commit()
-        return cursor.rowcount > 0
+        
+        if cursor.rowcount > 0:
+            # Clean up files after successful database deletion
+            upload_dir = os.getenv("UPLOAD_DIR", "./uploaded_docs")
+            topic_upload_dir = os.path.join(upload_dir, topic_id)
+            
+            # Remove topic-specific upload directory
+            if os.path.exists(topic_upload_dir):
+                try:
+                    shutil.rmtree(topic_upload_dir)
+                    print(f"🗑️ Deleted upload directory: {topic_upload_dir}")
+                except Exception as e:
+                    print(f"⚠️ Failed to delete upload directory {topic_upload_dir}: {e}")
+            
+            # Remove topic-specific RAG directory
+            rag_dir = os.getenv("RAG_DIR", "./rag_storage")
+            topic_rag_dir = os.path.join(rag_dir, f"topic_{topic_id}")
+            if os.path.exists(topic_rag_dir):
+                try:
+                    shutil.rmtree(topic_rag_dir)
+                    print(f"🗑️ Deleted RAG directory: {topic_rag_dir}")
+                except Exception as e:
+                    print(f"⚠️ Failed to delete RAG directory {topic_rag_dir}: {e}")
+            
+            return True
+        
+        return False
 
 async def save_study_topic_summary(topic_id: str, summary: str):
     """Save or update a study topic summary"""
@@ -257,8 +293,31 @@ async def get_content_items_count_by_topic(study_topic_id: str):
             return row[0] if row else 0
 
 async def delete_content_item(content_id: str):
-    """Delete a content item"""
+    """Delete a content item and associated file"""
+    import os
+    
     async with aiosqlite.connect(DB_PATH) as db:
+        # Get file path before deletion
+        async with db.execute("""
+        SELECT file_path FROM content_items 
+        WHERE content_id = ? AND file_path IS NOT NULL
+        """, (content_id,)) as cursor:
+            row = await cursor.fetchone()
+            file_path = row[0] if row else None
+        
+        # Delete from database
         cursor = await db.execute("DELETE FROM content_items WHERE content_id = ?", (content_id,))
         await db.commit()
-        return cursor.rowcount > 0
+        
+        if cursor.rowcount > 0:
+            # Clean up file after successful database deletion
+            if file_path and os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                    print(f"🗑️ Deleted file: {file_path}")
+                except Exception as e:
+                    print(f"⚠️ Failed to delete file {file_path}: {e}")
+            
+            return True
+        
+        return False

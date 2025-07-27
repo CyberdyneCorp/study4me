@@ -16,6 +16,11 @@ from pydantic import BaseModel, Field
 
 from dotenv import load_dotenv
 
+# === Load environment variables FIRST ===
+# Load environment variables from config.env or .env
+load_dotenv("config.env")
+load_dotenv()  # Also load from .env if it exists
+
 import networkx as nx
 import matplotlib.pyplot as plt
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Body, Request, Depends, BackgroundTasks, Form, WebSocket, WebSocketDisconnect
@@ -48,9 +53,6 @@ SHUTDOWN_EVENT = asyncio.Event()
 BACKGROUND_TASKS = set()  # Track running background tasks
 
 # === Configs and Paths ===
-# Load environment variables from config.env or .env
-load_dotenv("config.env")
-load_dotenv()  # Also load from .env if it exists
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "./uploaded_docs")
 RAG_DIR = os.getenv("RAG_DIR", "./rag_storage")
@@ -1652,3 +1654,41 @@ async def generate_study_topic_mindmap(
 ):
     """Generate a Mermaid mindmap code for all content in a specific study topic using OpenAI with SQLite caching"""
     return await generate_study_topic_mindmap_logic(topic_id, openai_client)
+
+@app.delete("/content/{content_id}", tags=["Content Management"], response_model=dict)
+async def delete_content_item_by_id(content_id: str):
+    """Delete a specific content item and its associated file"""
+    try:
+        logger.info(f"🗑️ Deleting content item: {content_id}")
+        
+        # Check if content item exists first
+        content_item = await get_content_item(content_id)
+        if not content_item:
+            logger.warning(f"❌ Content item not found for deletion: {content_id}")
+            raise HTTPException(status_code=404, detail=f"Content item with ID '{content_id}' not found")
+        
+        logger.info(f"📄 Content item found: '{content_item['title']}' (Type: {content_item['content_type']})")
+        
+        # Delete the content item (including associated file)
+        deleted = await delete_content_item(content_id)
+        
+        if not deleted:
+            logger.error(f"❌ Failed to delete content item: {content_id}")
+            raise HTTPException(status_code=500, detail="Failed to delete content item")
+        
+        logger.info(f"✅ Content item deleted successfully: {content_item['title']} ({content_id})")
+        
+        return {
+            "message": "Content item deleted successfully",
+            "content_id": content_id,
+            "title": content_item["title"],
+            "content_type": content_item["content_type"],
+            "study_topic_id": content_item["study_topic_id"],
+            "file_deleted": bool(content_item.get("file_path"))
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error deleting content item {content_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete content item: {str(e)}")

@@ -24,7 +24,9 @@
     UploadDocumentsResponse, 
     ProcessWebpageResponse, 
     ProcessYouTubeResponse,
-    TaskStatusResponse 
+    TaskStatusResponse,
+    ContentItem,
+    DeleteContentResponse
   } from '../services/api'
   import type { TaskUpdate } from '../services/websocket'
   
@@ -37,7 +39,12 @@
   const dispatch = createEventDispatcher()
   
   // Tab management state
-  let activeTab = 'upload'           // Current active tab ('upload', 'website', 'youtube')
+  let activeTab = 'sources'          // Current active tab ('sources', 'upload', 'website', 'youtube')
+  
+  // Existing content state
+  let existingContent: ContentItem[] = []
+  let isLoadingContent = false
+  let contentErrorMessage = ''
   
   // Form input states
   let websiteUrl = ''                // Website URL input value
@@ -74,6 +81,32 @@
     wsUnsubscribeFunctions.forEach(unsubscribe => unsubscribe())
   })
 
+  // Load existing content when modal opens and study topic changes
+  $: if (isOpen && studyTopicId) {
+    loadExistingContent()
+  }
+
+  /**
+   * Loads existing content items for the current study topic
+   */
+  async function loadExistingContent() {
+    if (!studyTopicId) return
+
+    isLoadingContent = true
+    contentErrorMessage = ''
+    
+    try {
+      const response = await apiService.getStudyTopicContent(studyTopicId)
+      existingContent = response.content_items || []
+    } catch (error) {
+      console.error('Failed to load existing content:', error)
+      contentErrorMessage = error instanceof Error ? error.message : 'Failed to load existing content'
+      existingContent = []
+    } finally {
+      isLoadingContent = false
+    }
+  }
+
   /**
    * Closes the sources modal and notifies parent component
    * Resets any temporary state when modal closes
@@ -93,7 +126,7 @@
    * Reset all modal state to initial values
    */
   function resetModalState() {
-    activeTab = 'upload'
+    activeTab = 'sources'
     websiteUrl = ''
     youtubeUrl = ''
     isDragging = false
@@ -102,6 +135,39 @@
     processingTasks = []
     isProcessing = false
     processingError = ''
+    existingContent = []
+    contentErrorMessage = ''
+  }
+
+  /**
+   * Deletes a content item/source
+   */
+  async function deleteContentItem(content: ContentItem) {
+    if (!confirm(`Are you sure you want to delete "${content.title}"? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      await apiService.deleteContent(content.content_id)
+      
+      // Remove the content from the local array
+      existingContent = existingContent.filter(item => item.content_id !== content.content_id)
+      
+      // Show success message briefly
+      contentErrorMessage = `✅ Deleted "${content.title}" successfully`
+      setTimeout(() => {
+        if (contentErrorMessage.includes('✅')) {
+          contentErrorMessage = ''
+        }
+      }, 3000)
+      
+      // Dispatch event to parent component
+      dispatch('contentDeleted', { contentId: content.content_id, title: content.title })
+      
+    } catch (error) {
+      console.error('Failed to delete content:', error)
+      contentErrorMessage = `❌ Failed to delete "${content.title}": ${error instanceof Error ? error.message : 'Unknown error'}`
+    }
   }
 
   /**
@@ -498,11 +564,19 @@
         
         <!-- 
           Tab Navigation
-          - Three tabs for different source types
+          - Four tabs for different source management and types
           - Yellow background for visual consistency
           - Active tab highlighted with white background
         -->
         <div class="flex border-b-4 border-black bg-brand-yellow">
+          <!-- Existing Sources Tab -->
+          <button 
+            class="flex-1 p-4 font-mono font-bold text-sm border-none border-r-2 border-black cursor-pointer text-black {activeTab === 'sources' ? 'bg-white' : 'bg-transparent'}"
+            on:click={() => setActiveTab('sources')}
+          >
+            📚 Sources ({existingContent.length})
+          </button>
+          
           <!-- Upload Files Tab -->
           <button 
             class="flex-1 p-4 font-mono font-bold text-sm border-none border-r-2 border-black cursor-pointer text-black {activeTab === 'upload' ? 'bg-white' : 'bg-transparent'}"
@@ -535,8 +609,135 @@
         -->
         <div class="flex-1 p-8 overflow-y-auto bg-gray-50">
           
+          <!-- SOURCES TAB CONTENT -->
+          {#if activeTab === 'sources'}
+            <div class="h-full flex flex-col gap-4">
+              
+              <!-- Sources introduction -->
+              <div class="text-center mb-4">
+                <div class="text-3xl mb-2">📚</div>
+                <h3 class="text-base font-bold font-mono mb-1">
+                  Existing Sources
+                </h3>
+                <p class="text-gray-600 text-sm">
+                  Manage and review all content sources for this topic
+                </p>
+              </div>
+              
+              <!-- Loading state -->
+              {#if isLoadingContent}
+                <div class="text-center p-8">
+                  <div class="animate-spin w-8 h-8 border-2 border-gray-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                  <div class="text-sm text-gray-600">Loading sources...</div>
+                </div>
+              <!-- Error state -->
+              {:else if contentErrorMessage && !contentErrorMessage.includes('✅')}
+                <div class="p-4 bg-red-100 border-2 border-red-500 text-red-700 text-sm">
+                  <strong>Error:</strong> {contentErrorMessage}
+                </div>
+              <!-- Success message -->
+              {:else if contentErrorMessage && contentErrorMessage.includes('✅')}
+                <div class="p-4 bg-green-100 border-2 border-green-500 text-green-700 text-sm">
+                  {contentErrorMessage}
+                </div>
+              {/if}
+              
+              <!-- Empty state -->
+              {#if !isLoadingContent && existingContent.length === 0}
+                <div class="text-center p-8 bg-white border-2 border-black">
+                  <div class="text-4xl mb-4">📂</div>
+                  <h4 class="font-bold font-mono mb-2">No sources yet</h4>
+                  <p class="text-gray-600 text-sm mb-4">Add your first source by uploading files, adding websites, or YouTube videos</p>
+                  <div class="flex justify-center gap-2">
+                    <button 
+                      class="bg-brand-blue text-white border-2 border-black rounded px-4 py-2 font-mono font-bold text-sm hover:bg-opacity-90"
+                      on:click={() => setActiveTab('upload')}
+                    >
+                      📁 Upload Files
+                    </button>
+                    <button 
+                      class="bg-brand-pink text-white border-2 border-black rounded px-4 py-2 font-mono font-bold text-sm hover:bg-opacity-90"
+                      on:click={() => setActiveTab('website')}
+                    >
+                      🌐 Add Website
+                    </button>
+                  </div>
+                </div>
+              {:else if !isLoadingContent}
+                <!-- Sources list -->
+                <div class="flex flex-col gap-3">
+                  {#each existingContent as content}
+                    <!-- Individual source card -->
+                    <div class="bg-white border-2 border-black p-4 relative group">
+                      <!-- Delete button -->
+                      <button
+                        class="absolute top-2 right-2 bg-red-500 text-white border border-black rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                        on:click={() => deleteContentItem(content)}
+                        title="Delete this source"
+                        aria-label="Delete {content.title}"
+                      >
+                        ×
+                      </button>
+                      
+                      <!-- Content info -->
+                      <div class="pr-8">
+                        <!-- Title -->
+                        <div class="font-bold text-sm font-mono text-black mb-2">
+                          {content.title}
+                        </div>
+                        
+                        <!-- Type and metadata -->
+                        <div class="flex items-center gap-4 text-xs text-gray-600 mb-2">
+                          <span class="uppercase font-bold bg-gray-100 px-2 py-1 rounded">
+                            {content.content_type}
+                          </span>
+                          <span>{content.content_length} chars</span>
+                          <span>{content.number_tokens} tokens</span>
+                        </div>
+                        
+                        <!-- Source info -->
+                        {#if content.source_url}
+                          <div class="text-xs text-blue-600 truncate mb-2" title={content.source_url}>
+                            🔗 {content.source_url}
+                          </div>
+                        {:else if content.file_path}
+                          <div class="text-xs text-green-600 truncate mb-2" title={content.file_path}>
+                            📄 {content.file_path.split('/').pop()}
+                          </div>
+                        {/if}
+                        
+                        <!-- Creation date -->
+                        <div class="text-xs text-gray-500">
+                          Added: {new Date(content.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+                
+                <!-- Summary stats -->
+                <div class="bg-white border-2 border-black p-4 mt-4">
+                  <h4 class="font-bold font-mono mb-2 text-sm">Summary</h4>
+                  <div class="grid grid-cols-3 gap-4 text-xs">
+                    <div>
+                      <span class="font-bold text-gray-700">Total Sources:</span>
+                      <div class="text-gray-600">{existingContent.length}</div>
+                    </div>
+                    <div>
+                      <span class="font-bold text-gray-700">Total Characters:</span>
+                      <div class="text-gray-600">{existingContent.reduce((sum, item) => sum + item.content_length, 0).toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <span class="font-bold text-gray-700">Total Tokens:</span>
+                      <div class="text-gray-600">{existingContent.reduce((sum, item) => sum + item.number_tokens, 0).toLocaleString()}</div>
+                    </div>
+                  </div>
+                </div>
+              {/if}
+            </div>
+            
           <!-- UPLOAD TAB CONTENT -->
-          {#if activeTab === 'upload'}
+          {:else if activeTab === 'upload'}
             <div class="h-full flex flex-col gap-6">
               
               <!-- 

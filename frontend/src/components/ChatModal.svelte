@@ -33,7 +33,7 @@
   import { createEventDispatcher, onMount } from 'svelte'
   import Button from './Button.svelte'
   import { apiService } from '../services/api'
-  import type { QueryResponse, ContentItem, StudyTopicSummaryResponse, StudyTopicMindmapResponse } from '../services/api'
+  import type { QueryResponse, ContentItem, StudyTopicSummaryResponse, StudyTopicMindmapResponse, DeleteContentResponse } from '../services/api'
   import mermaid from 'mermaid'
   
   // Props passed from parent component
@@ -357,6 +357,40 @@
   }
 
   /**
+   * Deletes a content item/reference
+   */
+  async function deleteReference(reference: ContentItem, event: MouseEvent) {
+    // Prevent opening the reference modal when delete button is clicked
+    event.stopPropagation()
+    
+    if (!confirm(`Are you sure you want to delete "${reference.title}"? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      const response: DeleteContentResponse = await apiService.deleteContent(reference.content_id)
+      
+      // Remove the reference from the local array
+      references = references.filter(ref => ref.content_id !== reference.content_id)
+      
+      // Show success message briefly
+      referencesErrorMessage = `✅ Deleted "${response.title}" successfully`
+      setTimeout(() => {
+        if (referencesErrorMessage.includes('✅')) {
+          referencesErrorMessage = ''
+        }
+      }, 3000)
+      
+      // Dispatch event to parent component to refresh data if needed
+      dispatch('contentDeleted', { contentId: reference.content_id, title: reference.title })
+      
+    } catch (error) {
+      console.error('Failed to delete reference:', error)
+      referencesErrorMessage = `❌ Failed to delete "${reference.title}": ${error instanceof Error ? error.message : 'Unknown error'}`
+    }
+  }
+
+  /**
    * Copies text to clipboard and provides user feedback
    * @param text - Text to copy to clipboard
    * @param messageId - ID of the message being copied for visual feedback
@@ -614,10 +648,14 @@
             <div class="text-center p-4">
               <div class="text-sm text-gray-600">Loading references...</div>
             </div>
-          <!-- Error state -->
+          <!-- Error/Success state -->
           {:else if referencesErrorMessage}
-            <div class="p-3 bg-red-100 border-2 border-red-500 text-red-700 text-sm mb-4">
-              <strong>Error:</strong> {referencesErrorMessage}
+            <div class="p-3 {referencesErrorMessage.includes('✅') ? 'bg-green-100 border-green-500 text-green-700' : 'bg-red-100 border-red-500 text-red-700'} border-2 text-sm mb-4">
+              {#if referencesErrorMessage.includes('✅')}
+                {referencesErrorMessage}
+              {:else}
+                <strong>Error:</strong> {referencesErrorMessage}
+              {/if}
             </div>
           <!-- Empty state -->
           {:else if references.length === 0}
@@ -632,16 +670,28 @@
                   - Shows title, type, and metadata with color transitions
                   - Interactive hover state with blue background
                   - Clickable to open reference content modal
+                  - Delete button in top-right corner
                 -->
                 <div 
-                  class="p-3 border-2 border-black bg-white cursor-pointer transition-all duration-300 hover:bg-brand-blue group"
+                  class="p-3 border-2 border-black bg-white cursor-pointer transition-all duration-300 hover:bg-brand-blue group relative"
                   on:click={() => openReferenceModal(reference)}
                   on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && openReferenceModal(reference)}
                   role="button"
                   tabindex="0"
                   aria-label="View content for {reference.title}">
+                  
+                  <!-- Delete button in top-right corner -->
+                  <button
+                    class="absolute top-2 right-2 bg-red-500 text-white border border-black rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    on:click={(e) => deleteReference(reference, e)}
+                    title="Delete this source"
+                    aria-label="Delete {reference.title}"
+                  >
+                    ×
+                  </button>
+                  
                   <!-- Reference title with hover color change -->
-                  <div class="font-bold text-sm font-mono text-black group-hover:text-white transition-colors duration-300 mb-1">
+                  <div class="font-bold text-sm font-mono text-black group-hover:text-white transition-colors duration-300 mb-1 pr-6">
                     {reference.title}
                   </div>
                   <!-- Reference type indicator -->
@@ -1206,7 +1256,7 @@
                 </button>
               </div>
             <!-- File Path (for documents) -->
-            {:else if selectedReference.file_path}
+            {:else if selectedReference?.file_path}
               <div class="flex items-center gap-2">
                 <span class="font-bold text-gray-700">File:</span>
                 <span class="text-green-600 font-mono text-sm">
@@ -1214,7 +1264,7 @@
                 </span>
                 <button
                   class="bg-green-500 text-white border border-black rounded px-2 py-1 text-xs font-mono font-bold hover:bg-opacity-90"
-                  on:click={() => downloadReference(selectedReference)}
+                  on:click={() => selectedReference && downloadReference(selectedReference)}
                 >
                   Download
                 </button>
@@ -1239,7 +1289,7 @@
               class="bg-brand-blue text-white border-2 border-black rounded px-4 py-2 font-mono font-bold cursor-pointer hover:bg-opacity-90"
               on:click={() => selectedReference && copyToClipboard(selectedReference.content, `reference-${selectedReference.content_id}`)}
             >
-              {copiedMessageId === `reference-${selectedReference.content_id}` ? 'Copied!' : 'Copy Content (Ctrl+C)'}
+              {copiedMessageId === `reference-${selectedReference.content_id}` ? 'Copied!' : 'Copy Content'}
             </button>
           </div>
           
