@@ -96,6 +96,14 @@ class LectureRequest(BaseModel):
     language: str = Field("english", description="Output language for the lecture (english, portuguese, spanish, french, german, italian)")
     focus_topic: Optional[str] = Field(None, max_length=200, description="Optional specific topic to focus on within the content")
 
+class LectureStatusResponse(BaseModel):
+    topic_id: str = Field(..., description="Study topic ID")
+    topic_name: str = Field(..., description="Study topic name")
+    has_lecture: bool = Field(..., description="Whether a lecture exists for this topic")
+    lecture_count: int = Field(..., description="Number of cached lectures for this topic")
+    latest_lecture: Optional[Dict[str, Any]] = Field(None, description="Latest lecture metadata if exists")
+    generated_at: Optional[float] = Field(None, description="Timestamp when latest lecture was generated")
+
 # === Text-to-Speech Models ===
 class TTSRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=50000, description="Text content to convert to speech")
@@ -1730,6 +1738,81 @@ async def generate_study_topic_mindmap(
 ):
     """Generate a Mermaid mindmap code for all content in a specific study topic using OpenAI with SQLite caching"""
     return await generate_study_topic_mindmap_logic(topic_id, openai_client)
+
+@app.get("/study-topics/{topic_id}/lecture/status", tags=["Study Topics"], response_model=LectureStatusResponse)
+async def check_lecture_status(topic_id: str):
+    """Check if a lecture already exists for a specific study topic"""
+    try:
+        logger.info(f"📚 Checking lecture status for study topic: {topic_id}")
+        
+        # Check if topic exists
+        topic = await get_study_topic(topic_id)
+        if not topic:
+            logger.warning(f"❌ Study topic not found: {topic_id}")
+            raise HTTPException(status_code=404, detail=f"Study topic with ID '{topic_id}' not found")
+        
+        # Check if lectures exist in database cache
+        import aiosqlite
+        DB_PATH = os.getenv("DB_PATH", "rag_tasks.db")
+        
+        async with aiosqlite.connect(DB_PATH) as db:
+            # Check for cached lectures in the study_topics table
+            cursor = await db.execute("""
+                SELECT lecture, lecture_generated_at, lecture_language, lecture_customization 
+                FROM study_topics 
+                WHERE topic_id = ?
+            """, (topic_id,))
+            latest_lecture_row = await cursor.fetchone()
+            
+            # For now, lecture_count is either 0 or 1 since we store only one lecture per topic
+            lecture_count = 1 if latest_lecture_row and latest_lecture_row[0] else 0
+        
+        # Prepare response
+        has_lecture = latest_lecture_row is not None and latest_lecture_row[0] is not None
+        latest_lecture = None
+        generated_at_timestamp = None
+        
+        if has_lecture:
+            generated_at = latest_lecture_row[1]  # lecture_generated_at
+            
+            # Convert timestamp string to Unix timestamp
+            if generated_at:
+                try:
+                    from datetime import datetime
+                    # Parse SQLite timestamp format and convert to Unix timestamp
+                    dt = datetime.fromisoformat(generated_at.replace(' ', 'T'))
+                    generated_at_timestamp = dt.timestamp()
+                except (ValueError, AttributeError):
+                    logger.warning(f"⚠️ Could not parse timestamp: {generated_at}")
+                    generated_at_timestamp = None
+            
+            latest_lecture = {
+                "language": latest_lecture_row[2] or "english",  # lecture_language
+                "focus_topic": latest_lecture_row[3],  # lecture_customization
+                "cached": True,  # It's cached since it's in the database
+                "lecture_length": len(latest_lecture_row[0]) if latest_lecture_row[0] else 0,
+                "generated_at": generated_at_timestamp
+            }
+            
+        # Update lecture_count to reflect actual data
+        lecture_count = 1 if has_lecture else 0
+        
+        logger.info(f"✅ Lecture status checked: Topic '{topic['name']}' has {lecture_count} lecture(s)")
+        
+        return LectureStatusResponse(
+            topic_id=topic_id,
+            topic_name=topic['name'],
+            has_lecture=has_lecture,
+            lecture_count=lecture_count,
+            latest_lecture=latest_lecture,
+            generated_at=generated_at_timestamp
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error checking lecture status for topic {topic_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to check lecture status: {str(e)}")
 
 @app.post("/study-topics/{topic_id}/lecture", tags=["Study Topics"], response_model=dict)
 async def generate_study_topic_lecture(

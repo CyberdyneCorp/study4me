@@ -33,7 +33,7 @@
   import { createEventDispatcher, onMount } from 'svelte'
   import Button from './Button.svelte'
   import { apiService } from '../services/api'
-  import type { QueryResponse, ContentItem, StudyTopicSummaryResponse, StudyTopicMindmapResponse, StudyTopicLectureResponse, LectureRequest, DeleteContentResponse, VoicesResponse, VoiceInfo, TTSRequest } from '../services/api'
+  import type { QueryResponse, ContentItem, StudyTopicSummaryResponse, StudyTopicMindmapResponse, StudyTopicLectureResponse, LectureRequest, DeleteContentResponse, VoicesResponse, VoiceInfo, TTSRequest, LectureStatusResponse } from '../services/api'
   import mermaid from 'mermaid'
   
   // Props passed from parent component
@@ -98,6 +98,10 @@
   let isGeneratingTTS = false
   let ttsError = ''
 
+  // Lecture status state
+  let lectureStatus: LectureStatusResponse | null = null
+  let isLoadingLectureStatus = false
+
   // Initialize Mermaid and load voices on component mount
   onMount(() => {
     mermaid.initialize({
@@ -109,9 +113,10 @@
     loadVoices()
   })
 
-  // Load references when modal opens and study topic changes
+  // Load references and lecture status when modal opens and study topic changes
   $: if (isOpen && studyTopicId) {
     loadReferences()
+    loadLectureStatus()
     chatMessages = []
     errorMessage = ''
     copiedMessageId = null
@@ -120,6 +125,25 @@
     errorMessage = ''
     copiedMessageId = null
     references = []
+    lectureStatus = null
+  }
+
+  /**
+   * Loads lecture status for the current study topic
+   */
+  async function loadLectureStatus() {
+    if (!studyTopicId) return
+    
+    isLoadingLectureStatus = true
+    
+    try {
+      lectureStatus = await apiService.checkLectureStatus(studyTopicId)
+    } catch (error) {
+      console.error('Failed to load lecture status:', error)
+      lectureStatus = null
+    } finally {
+      isLoadingLectureStatus = false
+    }
   }
 
   /**
@@ -316,19 +340,49 @@
   }
 
   /**
-   * Opens the podcast options modal
+   * Handles the Create/Open Podcast button click
+   * Shows existing lecture if available, otherwise opens options modal
    */
-  function handleCreatePodcast() {
+  async function handleCreatePodcast() {
     if (!studyTopicId) {
       lectureErrorMessage = 'No study topic selected'
       return
     }
     
-    // Reset options to defaults
+    // If lecture already exists and is loaded, open it directly
+    if (lectureStatus?.has_lecture && lectureData) {
+      isLectureModalOpen = true
+      return
+    }
+    
+    // If lecture exists in cache but not loaded, load it first
+    if (lectureStatus?.has_lecture && !lectureData) {
+      try {
+        isLoadingLecture = true
+        lectureErrorMessage = ''
+        
+        // Use the cached lecture parameters to reload it
+        const lectureRequest: LectureRequest = {
+          language: lectureStatus.latest_lecture?.language || 'english',
+          focus_topic: lectureStatus.latest_lecture?.focus_topic || undefined
+        }
+        
+        lectureData = await apiService.generateStudyTopicLecture(studyTopicId, lectureRequest)
+        isLectureModalOpen = true
+        return
+        
+      } catch (error) {
+        console.error('Failed to load existing lecture:', error)
+        lectureErrorMessage = error instanceof Error ? error.message : 'Failed to load existing lecture'
+      } finally {
+        isLoadingLecture = false
+      }
+    }
+    
+    // No lecture exists, open options modal for creating new one
     selectedLanguage = 'english'
     focusTopic = ''
     lectureErrorMessage = ''
-    
     isPodcastOptionsModalOpen = true
   }
 
@@ -361,6 +415,10 @@
       }
       
       lectureData = await apiService.generateStudyTopicLecture(studyTopicId, lectureRequest)
+      
+      // Refresh lecture status after generation
+      await loadLectureStatus()
+      
       isLectureModalOpen = true
     } catch (error) {
       console.error('Failed to generate lecture:', error)
@@ -1041,22 +1099,52 @@
           <!-- Action buttons container -->
           <div class="flex flex-col gap-3">
             
-            <!-- Create Podcast Button -->
+            <!-- Create/Open Podcast Button -->
             <button 
-              class="w-full h-12 p-3 border-2 border-black bg-brand-pink text-white cursor-pointer font-mono font-bold text-sm flex items-center justify-center gap-2 hover:bg-opacity-90 {isLoadingLecture ? 'opacity-50 cursor-not-allowed' : ''}"
+              class="w-full h-12 p-3 border-2 border-black bg-brand-pink text-white cursor-pointer font-mono font-bold text-sm flex items-center justify-center gap-2 hover:bg-opacity-90 {isLoadingLecture || isLoadingLectureStatus ? 'opacity-50 cursor-not-allowed' : ''}"
               on:click={handleCreatePodcast}
-              disabled={isLoadingLecture || !studyTopicId}
+              disabled={isLoadingLecture || isLoadingLectureStatus || !studyTopicId}
             >
-              <!-- Play icon for podcast or loading spinner -->
+              <!-- Loading spinner or appropriate icon -->
               {#if isLoadingLecture}
                 <div class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+              {:else if isLoadingLectureStatus}
+                <div class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+              {:else if lectureStatus?.has_lecture}
+                <!-- Open icon for existing podcast -->
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                </svg>
               {:else}
+                <!-- Play icon for new podcast -->
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
                 </svg>
               {/if}
-              {isLoadingLecture ? 'Generating...' : 'Create Podcast'}
+              
+              <!-- Dynamic button text -->
+              {#if isLoadingLecture}
+                Generating...
+              {:else if isLoadingLectureStatus}
+                Loading...
+              {:else if lectureStatus?.has_lecture}
+                Open Podcast
+              {:else}
+                Create Podcast
+              {/if}
             </button>
+            
+            <!-- Lecture status info -->
+            {#if lectureStatus?.has_lecture && lectureStatus.latest_lecture}
+              <div class="text-xs text-gray-600 mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                <div class="font-bold">📚 Existing Lecture</div>
+                <div>Language: {lectureStatus.latest_lecture.language}</div>
+                {#if lectureStatus.latest_lecture.focus_topic}
+                  <div>Focus: {lectureStatus.latest_lecture.focus_topic}</div>
+                {/if}
+                <div>Created: {new Date(lectureStatus.latest_lecture.generated_at * 1000).toLocaleDateString()}</div>
+              </div>
+            {/if}
             
             <!-- Create Mindmap Button -->
             <button 
@@ -1486,11 +1574,16 @@
       <div class="flex justify-between items-center p-4 border-b-4 border-black bg-white">
         <div>
           <h2 id="podcast-options-modal-title" class="text-xl font-bold font-mono text-black mb-1">
-            Podcast Options
+            {lectureStatus?.has_lecture ? 'Regenerate Podcast' : 'Podcast Options'}
           </h2>
           <p class="text-sm text-gray-600">
-            Customize your lecture generation
+            {lectureStatus?.has_lecture ? 'Customize and regenerate your lecture' : 'Customize your lecture generation'}
           </p>
+          {#if lectureStatus?.has_lecture && lectureStatus.latest_lecture}
+            <div class="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+              <strong>Note:</strong> A lecture already exists. Generating a new one will replace the current version.
+            </div>
+          {/if}
         </div>
         <button 
           class="bg-brand-pink text-white border-2 border-black rounded px-3 py-2 font-mono font-bold cursor-pointer text-lg hover:bg-opacity-90"
@@ -1552,7 +1645,7 @@
             class="flex-1 bg-brand-blue text-white border-2 border-black rounded px-4 py-3 font-mono font-bold cursor-pointer hover:bg-opacity-90"
             on:click={handleGenerateLecture}
           >
-            Generate Lecture
+            {lectureStatus?.has_lecture ? 'Regenerate Lecture' : 'Generate Lecture'}
           </button>
         </div>
       </div>

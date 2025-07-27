@@ -123,6 +123,21 @@ interface StudyTopicLectureResponse {
   cached: boolean
 }
 
+interface LectureStatusResponse {
+  topic_id: string
+  topic_name: string
+  has_lecture: boolean
+  lecture_count: number
+  latest_lecture?: {
+    language: string
+    focus_topic?: string
+    cached: boolean
+    lecture_length: number
+    generated_at: number
+  }
+  generated_at?: number
+}
+
 class ApiService {
   private async request<T>(
     endpoint: string,
@@ -209,6 +224,11 @@ class ApiService {
     return response as unknown as StudyTopicMindmapResponse
   }
 
+  async checkLectureStatus(topicId: string): Promise<LectureStatusResponse> {
+    const response = await this.request<LectureStatusResponse>(`/study-topics/${topicId}/lecture/status`)
+    return response as unknown as LectureStatusResponse
+  }
+  
   async generateStudyTopicLecture(topicId: string, lectureRequest: LectureRequest): Promise<StudyTopicLectureResponse> {
     const response = await this.request<StudyTopicLectureResponse>(`/study-topics/${topicId}/lecture`, {
       method: 'POST',
@@ -537,6 +557,7 @@ export type {
   StudyTopicSummaryResponse,
   StudyTopicMindmapResponse,
   LectureRequest,
+  LectureStatusResponse,
   StudyTopicLectureResponse,
   UploadDocumentsResponse,
   ProcessWebpageResponse,
