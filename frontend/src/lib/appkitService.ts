@@ -50,6 +50,12 @@ class AppKitService {
    * @returns Promise<boolean> - Success status
    */
   async initialize(): Promise<boolean> {
+    console.log('AppKit initialize called, current state:', {
+      isInitializing: this.isInitializing,
+      hasAppKit: !!this.appKit,
+      serviceInstance: !!this
+    })
+
     // Prevent multiple initialization attempts
     if (this.isInitializing) {
       console.log('AppKit initialization already in progress')
@@ -70,6 +76,8 @@ class AppKitService {
 
       // Validate required environment variables
       const projectId = import.meta.env.VITE_REOWN_PROJECT_ID
+      console.log('Project ID from env:', projectId)
+      
       if (!projectId || projectId === 'your_reown_project_id') {
         throw new Error('VITE_REOWN_PROJECT_ID is not configured. Please set your Reown project ID in the .env file.')
       }
@@ -156,8 +164,15 @@ class AppKitService {
    */
   async openModal(): Promise<void> {
     try {
+      console.log('AppKit openModal called, current state:', {
+        hasAppKit: !!this.appKit,
+        isInitializing: this.isInitializing,
+        serviceInstance: !!this
+      })
+
       // Ensure AppKit is initialized
       if (!this.appKit) {
+        console.log('AppKit not initialized, attempting to initialize...')
         const initialized = await this.initialize()
         if (!initialized) {
           throw new Error('Failed to initialize AppKit')
@@ -168,13 +183,15 @@ class AppKitService {
       appKitActions.clearError()
 
       // Open the connection modal
+      console.log('Opening AppKit modal...')
       this.appKit?.open()
 
-      console.log('AppKit modal opened')
+      console.log('AppKit modal opened successfully')
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to open AppKit modal'
       console.error('Open modal error:', errorMessage)
+      console.error('Full error object:', error)
       appKitActions.setError(errorMessage)
     } finally {
       appKitActions.setLoading(false)
@@ -324,14 +341,12 @@ class AppKitService {
 // Create singleton instance
 export const appKitService = new AppKitService()
 
-// Export service methods for convenience
-export const {
-  initialize: initializeAppKit,
-  openModal: openAppKitModal,
-  openModalView: openAppKitModalView,
-  closeModal: closeAppKitModal,
-  disconnect: disconnectWallet,
-  getWalletInfo,
-  getInstance: getAppKitInstance,
-  isInitialized: isAppKitInitialized
-} = appKitService
+// Export service methods for convenience (preserve 'this' context)
+export const initializeAppKit = () => appKitService.initialize()
+export const openAppKitModal = () => appKitService.openModal()
+export const openAppKitModalView = (view: string) => appKitService.openModalView(view)
+export const closeAppKitModal = () => appKitService.closeModal()
+export const disconnectWallet = () => appKitService.disconnect()
+export const getWalletInfo = () => appKitService.getWalletInfo()
+export const getAppKitInstance = () => appKitService.getInstance()
+export const isAppKitInitialized = () => appKitService.isInitialized()
