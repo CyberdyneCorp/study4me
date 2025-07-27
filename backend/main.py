@@ -95,6 +95,7 @@ class StudyTopicUpdate(BaseModel):
 class LectureRequest(BaseModel):
     language: str = Field("english", description="Output language for the lecture (english, portuguese, spanish, french, german, italian)")
     focus_topic: Optional[str] = Field(None, max_length=200, description="Optional specific topic to focus on within the content")
+    force: Optional[bool] = Field(False, description="Force regeneration, bypassing cache even if matching lecture exists")
 
 class LectureStatusResponse(BaseModel):
     topic_id: str = Field(..., description="Study topic ID")
@@ -1825,7 +1826,8 @@ async def generate_study_topic_lecture(
         topic_id, 
         openai_client, 
         language=lecture_request.language,
-        focus_topic=lecture_request.focus_topic
+        focus_topic=lecture_request.focus_topic,
+        force=lecture_request.force
     )
 
 @app.delete("/content/{content_id}", tags=["Content Management"], response_model=dict)

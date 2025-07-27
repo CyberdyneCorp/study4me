@@ -102,6 +102,7 @@ interface StudyTopicMindmapResponse {
 interface LectureRequest {
   language: string
   focus_topic?: string
+  force?: boolean
 }
 
 interface StudyTopicLectureResponse {

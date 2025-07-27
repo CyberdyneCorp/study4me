@@ -605,7 +605,8 @@ async def generate_study_topic_lecture_logic(
     topic_id: str,
     openai_client: OpenAI,
     language: str = "english",
-    focus_topic: str = None
+    focus_topic: str = None,
+    force: bool = False
 ) -> Dict[str, Any]:
     """
     Generate a comprehensive lecture about all content in a specific study topic using OpenAI with SQLite caching
@@ -643,8 +644,8 @@ async def generate_study_topic_lecture_logic(
         
         logger.info(f"✅ [lecture-{lecture_id}] Study topic validated: '{topic['name']}'")
         
-        # Check if we have a cached lecture with matching language and customization
-        if (topic.get('lecture') and topic.get('lecture_generated_at') and 
+        # Check if we have a cached lecture with matching language and customization (unless force=True)
+        if (not force and topic.get('lecture') and topic.get('lecture_generated_at') and 
             topic.get('lecture_language') == language and 
             topic.get('lecture_customization') == customization):
             logger.info(f"💾 [lecture-{lecture_id}] Found cached lecture from {topic['lecture_generated_at']}")
@@ -678,7 +679,10 @@ async def generate_study_topic_lecture_logic(
                 "cached": True
             }
         
-        logger.info(f"🔄 [lecture-{lecture_id}] No cached lecture found or parameters changed, generating new one...")
+        if force:
+            logger.info(f"🔄 [lecture-{lecture_id}] Force regeneration requested, bypassing cache...")
+        else:
+            logger.info(f"🔄 [lecture-{lecture_id}] No cached lecture found or parameters changed, generating new one...")
         
         # Get all content items for this topic
         content_items_summary = await list_content_items_by_topic(topic_id)

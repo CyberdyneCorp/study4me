@@ -101,6 +101,7 @@
   // Lecture status state
   let lectureStatus: LectureStatusResponse | null = null
   let isLoadingLectureStatus = false
+  let isRegenerateMode = false
 
   // Initialize Mermaid and load voices on component mount
   onMount(() => {
@@ -340,6 +341,30 @@
   }
 
   /**
+   * Handles the regenerate button click
+   * Sets regenerate mode and opens options modal with existing settings
+   */
+  function handleRegenerateClick() {
+    console.log('🔄 Regenerate clicked - setting regenerate mode')
+    isRegenerateMode = true
+    
+    // Pre-fill with existing lecture settings
+    if (lectureStatus?.has_lecture && lectureStatus.latest_lecture) {
+      selectedLanguage = lectureStatus.latest_lecture.language
+      focusTopic = lectureStatus.latest_lecture.focus_topic || ''
+    } else {
+      selectedLanguage = 'english'
+      focusTopic = ''
+    }
+    
+    lectureErrorMessage = ''
+    // Clear any existing lecture data to ensure we don't accidentally open the lecture modal
+    lectureData = null
+    isPodcastOptionsModalOpen = true
+    console.log('🔄 Regenerate mode set, options modal opened')
+  }
+
+  /**
    * Handles the Create/Open Podcast button click
    * Shows existing lecture if available, otherwise opens options modal
    */
@@ -364,7 +389,8 @@
         // Use the cached lecture parameters to reload it
         const lectureRequest: LectureRequest = {
           language: lectureStatus.latest_lecture?.language || 'english',
-          focus_topic: lectureStatus.latest_lecture?.focus_topic || undefined
+          focus_topic: lectureStatus.latest_lecture?.focus_topic || undefined,
+          force: isRegenerateMode  // Pass force flag if in regenerate mode
         }
         
         lectureData = await apiService.generateStudyTopicLecture(studyTopicId, lectureRequest)
@@ -389,10 +415,13 @@
   /**
    * Closes the podcast options modal
    */
-  function closePodcastOptionsModal() {
+  function closePodcastOptionsModal(resetRegenerateMode = true) {
     isPodcastOptionsModalOpen = false
     selectedLanguage = 'english'
     focusTopic = ''
+    if (resetRegenerateMode) {
+      isRegenerateMode = false  // Reset regeneration mode when closing (unless explicitly told not to)
+    }
   }
 
   /**
@@ -404,15 +433,20 @@
       return
     }
 
+    console.log('🎓 Generate lecture called, regenerate mode:', isRegenerateMode)
     isLoadingLecture = true
     lectureErrorMessage = ''
-    closePodcastOptionsModal()
     
     try {
       const lectureRequest: LectureRequest = {
         language: selectedLanguage,
-        focus_topic: focusTopic.trim() || undefined
+        focus_topic: focusTopic.trim() || undefined,
+        force: isRegenerateMode  // Force regeneration when in regenerate mode
       }
+      
+      console.log('🎓 Sending lecture request:', lectureRequest)
+      // Close modal AFTER creating the request, but don't reset regenerate mode yet
+      closePodcastOptionsModal(false)
       
       lectureData = await apiService.generateStudyTopicLecture(studyTopicId, lectureRequest)
       
@@ -420,9 +454,11 @@
       await loadLectureStatus()
       
       isLectureModalOpen = true
+      isRegenerateMode = false  // Reset regeneration mode after successful generation
     } catch (error) {
       console.error('Failed to generate lecture:', error)
       lectureErrorMessage = error instanceof Error ? error.message : 'Failed to generate lecture'
+      isRegenerateMode = false  // Reset regeneration mode on error
     } finally {
       isLoadingLecture = false
     }
@@ -1136,8 +1172,17 @@
             
             <!-- Lecture status info -->
             {#if lectureStatus?.has_lecture && lectureStatus.latest_lecture}
-              <div class="text-xs text-gray-600 mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
-                <div class="font-bold">📚 Existing Lecture</div>
+              <div class="text-xs text-gray-600 mt-2 p-3 bg-blue-50 border border-blue-200 rounded">
+                <div class="flex justify-between items-start mb-2">
+                  <div class="font-bold">📚 Existing Lecture</div>
+                  <button 
+                    class="bg-orange-500 text-white border border-black rounded px-2 py-1 text-xs font-mono font-bold hover:bg-orange-600 transition-colors"
+                    on:click={handleRegenerateClick}
+                    title="Regenerate this lecture with new options"
+                  >
+                    🔄 Regenerate
+                  </button>
+                </div>
                 <div>Language: {lectureStatus.latest_lecture.language}</div>
                 {#if lectureStatus.latest_lecture.focus_topic}
                   <div>Focus: {lectureStatus.latest_lecture.focus_topic}</div>
