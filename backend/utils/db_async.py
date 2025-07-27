@@ -293,17 +293,38 @@ async def get_content_items_count_by_topic(study_topic_id: str):
             return row[0] if row else 0
 
 async def delete_content_item(content_id: str):
-    """Delete a content item and associated file"""
+    """Delete a content item, associated file, and from LightRAG knowledge graph"""
     import os
+    import asyncio
     
     async with aiosqlite.connect(DB_PATH) as db:
-        # Get file path before deletion
+        # Get content item details before deletion
         async with db.execute("""
-        SELECT file_path FROM content_items 
-        WHERE content_id = ? AND file_path IS NOT NULL
+        SELECT file_path, study_topic_id, use_knowledge_graph FROM content_items 
+        JOIN study_topics ON content_items.study_topic_id = study_topics.topic_id
+        WHERE content_id = ?
         """, (content_id,)) as cursor:
             row = await cursor.fetchone()
-            file_path = row[0] if row else None
+            if not row:
+                return False
+            file_path, study_topic_id, use_knowledge_graph = row
+        
+        # Delete from LightRAG knowledge graph (only if study topic uses knowledge graph)
+        if use_knowledge_graph:
+            try:
+                # Import here to avoid circular imports
+                from main import get_topic_rag
+                topic_rag = await get_topic_rag(study_topic_id)
+                if topic_rag:
+                    await asyncio.to_thread(topic_rag.adelete_by_doc_id, content_id)
+                    print(f"🗑️ Deleted from LightRAG knowledge graph: {content_id} (study topic has knowledge graph enabled)")
+                else:
+                    print(f"⚠️ Could not get RAG instance for study topic: {study_topic_id}")
+            except Exception as e:
+                print(f"⚠️ Failed to delete from LightRAG knowledge graph: {e}")
+                # Continue with file/database deletion even if LightRAG deletion fails
+        else:
+            print(f"📝 Skipping LightRAG deletion: study topic does not use knowledge graph")
         
         # Delete from database
         cursor = await db.execute("DELETE FROM content_items WHERE content_id = ?", (content_id,))

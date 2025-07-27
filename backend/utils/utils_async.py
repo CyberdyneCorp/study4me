@@ -153,20 +153,20 @@ async def process_uploaded_documents(saved_paths, rag: Optional[LightRAG], callb
             t1 = time.perf_counter()
             logger.info(f"[{filename}] Docling conversion: {t1 - t0:.2f}s")
 
-            # --- LightRAG insertion (conditional) ---
-            rag_time = 0
-            if use_knowledge_graph and rag:
-                t0 = time.perf_counter()
-                await asyncio.to_thread(rag.insert, text, file_paths=[file_path])
-                t1 = time.perf_counter()
-                rag_time = t1 - t0
-                logger.info(f"[{filename}] LightRAG.insert: {rag_time:.2f}s")
-            else:
-                logger.info(f"[{filename}] Skipping LightRAG insertion (knowledge graph disabled for topic or no RAG instance)")
-
-            # --- Save content item to database ---
+            # --- Save content item to database first to get content_id ---
             if study_topic_id and file_path in content_items_map:
                 content_item = content_items_map[file_path]
+                
+                # --- LightRAG insertion (conditional) with content_id ---
+                rag_time = 0
+                if use_knowledge_graph and rag:
+                    t0 = time.perf_counter()
+                    await asyncio.to_thread(rag.insert, text, ids=content_item['content_id'], file_paths=[file_path])
+                    t1 = time.perf_counter()
+                    rag_time = t1 - t0
+                    logger.info(f"[{filename}] LightRAG.insert with ID {content_item['content_id']}: {rag_time:.2f}s")
+                else:
+                    logger.info(f"[{filename}] Skipping LightRAG insertion (knowledge graph disabled for topic or no RAG instance)")
                 try:
                     await create_content_item(
                         content_id=content_item['content_id'],
@@ -307,16 +307,16 @@ async def process_image_background(
 
         content = resp.choices[0].message.content
 
-        # LightRAG insert (conditional)
+        # LightRAG insert (conditional) with content_id
         rag_time = 0
-        if use_knowledge_graph and rag:
+        if use_knowledge_graph and rag and content_id:
             t0 = time.perf_counter()
-            await asyncio.to_thread(rag.insert, content, file_paths=[filename])
+            await asyncio.to_thread(rag.insert, content, ids=content_id, file_paths=[filename])
             t1 = time.perf_counter()
             rag_time = t1 - t0
-            logger.info(f"[{filename}] LightRAG.insert: {rag_time:.2f}s")
+            logger.info(f"[{filename}] LightRAG.insert with ID {content_id}: {rag_time:.2f}s")
         else:
-            logger.info(f"[{filename}] Skipping LightRAG insertion (knowledge graph disabled for topic or no RAG instance)")
+            logger.info(f"[{filename}] Skipping LightRAG insertion (knowledge graph disabled, no RAG instance, or no content_id)")
 
         # --- Save content item to database ---
         if study_topic_id and content_id:
@@ -439,16 +439,16 @@ async def process_webpage_background(
         t1 = time.perf_counter()
         logger.info(f"[webpage] Docling conversion: {t1 - t0:.2f}s")
 
-        # --- LightRAG insertion (conditional) ---
+        # --- LightRAG insertion (conditional) with content_id ---
         rag_time = 0
-        if use_knowledge_graph and rag:
+        if use_knowledge_graph and rag and content_id:
             t0 = time.perf_counter()
-            await asyncio.to_thread(rag.insert, text, file_paths=[url])
+            await asyncio.to_thread(rag.insert, text, ids=content_id, file_paths=[url])
             t1 = time.perf_counter()
             rag_time = t1 - t0
-            logger.info(f"[webpage] LightRAG.insert: {rag_time:.2f}s")
+            logger.info(f"[webpage] LightRAG.insert with ID {content_id}: {rag_time:.2f}s")
         else:
-            logger.info(f"[webpage] Skipping LightRAG insertion (knowledge graph disabled for topic or no RAG instance)")
+            logger.info(f"[webpage] Skipping LightRAG insertion (knowledge graph disabled, no RAG instance, or no content_id)")
 
         # --- Save content item to database ---
         if study_topic_id and content_id:
@@ -863,15 +863,15 @@ Transcript:
 {transcript_text}
 """
         
-        # Insert into LightRAG (conditional)
+        # Insert into LightRAG (conditional) with content_id
         rag_time = 0
-        if use_knowledge_graph and rag:
-            await asyncio.to_thread(rag.insert, formatted_content, file_paths=[url])
+        if use_knowledge_graph and rag and content_id:
+            await asyncio.to_thread(rag.insert, formatted_content, ids=content_id, file_paths=[url])
             t3 = time.perf_counter()
             rag_time = t3 - t2
-            logger.info(f"✅ [yt-{short_id}] LightRAG processing completed: {rag_time:.2f}s")
+            logger.info(f"✅ [yt-{short_id}] LightRAG processing with ID {content_id} completed: {rag_time:.2f}s")
         else:
-            logger.info(f"📺 [yt-{short_id}] Skipping LightRAG insertion (knowledge graph disabled for topic or no RAG instance)")
+            logger.info(f"📺 [yt-{short_id}] Skipping LightRAG insertion (knowledge graph disabled, no RAG instance, or no content_id)")
 
         # --- Save content item to database ---
         if study_topic_id and content_id:
