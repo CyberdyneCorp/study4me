@@ -147,6 +147,7 @@
       case 1: return 'Ethereum'
       case 137: return 'Polygon'
       case 42161: return 'Arbitrum'
+      case 8453: return 'Base'
       default: return `Chain ${chainId}`
     }
   }

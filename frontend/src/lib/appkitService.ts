@@ -11,7 +11,7 @@
 
 import { createAppKit } from '@reown/appkit'
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
-import { mainnet, arbitrum, polygon } from '@reown/appkit/networks'
+import { mainnet, arbitrum, polygon, base } from '@reown/appkit/networks'
 import type { AppKit, AppKitNetwork } from '@reown/appkit'
 import { 
   appKitInstance, 
@@ -83,7 +83,7 @@ class AppKitService {
       }
 
       // Define supported networks
-      const networks = [mainnet, arbitrum, polygon]
+      const networks = [mainnet, arbitrum, polygon, base]
 
       // Initialize Wagmi adapter
       this.wagmiAdapter = new WagmiAdapter({ 
