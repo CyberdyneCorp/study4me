@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "study4me": {
+      "command": "python",
+      "args": ["/Users/leonardoaraujo/work/study4me/backend/mcp_server.py", "--transport", "stdio"],
+      "env": {
+        "OPENAI_API_KEY": "your_openai_api_key_here"
+      }
+    }
+  }
+}

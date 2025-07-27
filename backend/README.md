@@ -14,6 +14,7 @@ FastAPI backend server for the Study4Me application, providing APIs for document
 - **Content Storage**: SQLite-based content storage with UUID tracking and topic relationships
 - **Background Processing**: Asynchronous task processing with status tracking and graceful shutdown
 - **RESTful API**: Comprehensive REST API with automatic OpenAPI documentation
+- **MCP Server**: Model Context Protocol server for Claude Code/Desktop integration with FastMCP v2
 
 ## Tech Stack
 
@@ -26,6 +27,7 @@ FastAPI backend server for the Study4Me application, providing APIs for document
 - **Token Counting**: tiktoken for accurate token estimation and content analysis
 - **HTTP Client**: httpx for external API calls
 - **Environment**: python-dotenv for configuration
+- **MCP Integration**: FastMCP v2 for Claude Code/Desktop connectivity
 
 ## Setup
 
@@ -33,6 +35,9 @@ FastAPI backend server for the Study4Me application, providing APIs for document
 
 ```bash
 pip install -r requirements.txt
+
+# For MCP server functionality
+pip install fastmcp
 ```
 
 ### 2. Environment Configuration
@@ -101,6 +106,12 @@ Once running, visit:
 ### Task Management
 - `GET /task-status/{task_id}` - Check background task status and retrieve results
 
+### MCP Server (Model Context Protocol)
+- **File**: `mcp_server.py` - MCP server with three main tools:
+  - `get_content_from_study(study_topic_id)` - Get all content for a specific study topic
+  - `query_study(study_topic_id, query, mode)` - Query topics using LightRAG or ChatGPT
+  - `list_all_studies(include_content_count, include_summary)` - List all study topics with summaries
+
 ### Study Topics Management
 - `POST /study-topics` - Create a new study topic with UUID (name, description, use_knowledge_graph)
 - `GET /study-topics` - List all study topics with pagination support
@@ -115,6 +126,10 @@ Once running, visit:
 ```
 backend/
 ├── main.py              # FastAPI application and routes
+├── mcp_server.py        # MCP server for Claude Code/Desktop integration
+├── mcp_config.json      # Example MCP configuration for Claude Desktop
+├── test_mcp.py         # MCP server testing utilities
+├── README_MCP.md       # Detailed MCP server documentation
 ├── youtube_service.py   # YouTube transcript processing
 ├── requirements.txt    # Python dependencies
 ├── config.env         # Environment configuration template
@@ -170,6 +185,99 @@ else:
     # Use ChatGPT with full topic content as context
     result = await query_with_context(query, combined_content, topic_name)
 ```
+
+## MCP Server Integration
+
+The Study4Me backend includes a Model Context Protocol (MCP) server built with FastMCP v2 that enables seamless integration with Claude Code and Claude Desktop. This allows you to interact with your study topics and content directly through Claude interfaces.
+
+### MCP Server Features
+
+The MCP server (`mcp_server.py`) provides three main tools:
+
+1. **`get_content_from_study`** - Retrieve all content for a specific study topic
+2. **`query_study`** - Query study topics using LightRAG or ChatGPT with context  
+3. **`list_all_studies`** - List all study topics with comprehensive metadata and summaries
+
+### Setup for Claude Desktop
+
+1. **Install FastMCP** (if not already done):
+   ```bash
+   pip install fastmcp
+   ```
+
+2. **Locate Claude Desktop Configuration**:
+   - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+3. **Add MCP Server Configuration**:
+   ```json
+   {
+     "mcpServers": {
+       "study4me": {
+         "url": "http://127.0.0.1:8001/mcp/"
+       }
+     }
+   }
+   ```
+   
+   **Note**: Environment variables should be set in your shell/environment where you run the MCP server, not in Claude Desktop config.
+
+4. **Restart Claude Desktop** to load the new MCP server.
+
+### Setup for Claude Code
+
+Claude Code has built-in MCP support. To use the Study4Me MCP server:
+
+1. **Ensure the MCP server is working**:
+   ```bash
+   python mcp_server.py --help
+   ```
+
+2. **Use the server in Claude Code** by referencing the MCP tools in your conversations:
+   ```
+   Please use the list_all_studies tool to show me all available study topics.
+   ```
+
+### Example Usage
+
+Once configured, you can interact with your Study4Me backend through Claude:
+
+```
+# List all study topics
+Please use the list_all_studies tool to show me all my study topics with summaries.
+
+# Get content from a specific study
+Use get_content_from_study with topic ID "409159f9-11fa-4dd1-aaa0-56697278885c" to show me all content.
+
+# Query a study topic
+Use query_study to ask "What are the key machine learning algorithms discussed?" for topic ID "409159f9-11fa-4dd1-aaa0-56697278885c".
+```
+
+### MCP Server Management
+
+**Start the MCP server standalone**:
+```bash
+python mcp_server.py
+# Server will be available at http://127.0.0.1:8001/mcp/
+```
+
+**Test MCP functionality**:
+```bash
+python test_mcp.py
+```
+
+**Configuration files**:
+- `mcp_config.json` - Example configuration for Claude Desktop
+- `README_MCP.md` - Detailed MCP server documentation
+
+### Troubleshooting MCP Integration
+
+1. **Server not connecting**: Verify absolute paths in configuration
+2. **Environment variables**: Ensure `OPENAI_API_KEY` is properly set
+3. **Database access**: Check file permissions for `rag_tasks.db`
+4. **Python path**: Use full path to Python executable if needed
+
+For detailed MCP server documentation, see [README_MCP.md](./README_MCP.md).
 
 ## Development
 
