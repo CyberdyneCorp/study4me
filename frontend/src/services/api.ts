@@ -310,6 +310,13 @@ class ApiService {
   async getGraphData(topicId: string) {
     return this.request<any>(`/api/topics/${topicId}/graph`)
   }
+
+  // === MCP Status ===
+
+  async getMcpStatus(): Promise<McpStatusResponse> {
+    const response = await this.request<McpStatusResponse>('/mcp/status')
+    return response as unknown as McpStatusResponse
+  }
 }
 
 export const apiService = new ApiService()
@@ -352,6 +359,24 @@ interface TaskStatusResponse {
   processing_time_seconds?: number
 }
 
+interface McpStatusResponse {
+  status: 'running' | 'installed_not_running' | 'not_configured' | 'not_installed' | 'unknown' | 'error'
+  server_file_exists: boolean
+  config_file_exists: boolean
+  server_running: boolean
+  server_url: string
+  server_url_source: string
+  server_error?: string
+  environment: {
+    openai_api_key_set: boolean
+    db_path_set: boolean
+    rag_dir_set: boolean
+  }
+  config?: any
+  error?: string
+  timestamp: number
+}
+
 export type {
   StudyTopic,
   CreateStudyTopicRequest,
@@ -365,5 +390,6 @@ export type {
   UploadDocumentsResponse,
   ProcessWebpageResponse,
   ProcessYouTubeResponse,
-  TaskStatusResponse
+  TaskStatusResponse,
+  McpStatusResponse
 }

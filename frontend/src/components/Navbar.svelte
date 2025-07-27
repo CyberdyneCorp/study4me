@@ -16,20 +16,95 @@
 -->
 
 <script lang="ts">
+  import { onMount } from 'svelte'
+  
   // Store imports for UI state management
   import { uiStore, uiActions } from '../stores/uiStore'
   
+  // MCP service import
+  import { mcpService } from '../services/mcp'
+  import type { McpStatusResponse } from '../services/api'
+  
   // Local component state
-  let mcpEnabled = true;    // MCP (Model Context Protocol) toggle state
+  let mcpStatus: McpStatusResponse | null = null
+  let mcpEnabled = false
+  let mcpStatusMessage = 'Checking...'
+  let isChecking = false
   
   /**
-   * Toggles the MCP (Model Context Protocol) enabled state
-   * Updates the visual indicator and potentially affects backend connections
-   * TODO: Implement actual MCP connection logic
+   * Check MCP status from backend
    */
-  function toggleMCP() {
-    mcpEnabled = !mcpEnabled;
-    // TODO: Add actual MCP connection/disconnection logic here
+  async function checkMcpStatus() {
+    if (isChecking) return
+    
+    isChecking = true
+    try {
+      mcpStatus = await mcpService.getStatus()
+      mcpEnabled = mcpStatus.status === 'running'
+      mcpStatusMessage = await mcpService.getStatusMessage()
+    } catch (error) {
+      console.error('Failed to check MCP status:', error)
+      mcpEnabled = false
+      mcpStatusMessage = 'Failed to check status'
+    } finally {
+      isChecking = false
+    }
+  }
+  
+  /**
+   * Get the appropriate CSS class for the MCP status button
+   */
+  function getMcpStatusClass(): string {
+    if (isChecking) return 'bg-yellow-500'
+    
+    if (!mcpStatus) return 'bg-gray-500'
+    
+    switch (mcpStatus.status) {
+      case 'running':
+        return 'bg-green-500'
+      case 'installed_not_running':
+        return 'bg-orange-500'
+      case 'not_configured':
+        return 'bg-red-500'
+      case 'not_installed':
+        return 'bg-gray-500'
+      case 'error':
+        return 'bg-red-600'
+      default:
+        return 'bg-gray-500'
+    }
+  }
+  
+  /**
+   * Get the appropriate text for the MCP status button
+   */
+  function getMcpStatusText(): string {
+    if (isChecking) return 'Checking...'
+    
+    if (!mcpStatus) return 'Unknown'
+    
+    switch (mcpStatus.status) {
+      case 'running':
+        return 'Running'
+      case 'installed_not_running':
+        return 'Not Running'
+      case 'not_configured':
+        return 'Not Configured'
+      case 'not_installed':
+        return 'Not Installed'
+      case 'error':
+        return 'Error'
+      default:
+        return 'Unknown'
+    }
+  }
+  
+  /**
+   * Refresh MCP status (clears cache and checks again)
+   */
+  async function refreshMcpStatus() {
+    mcpService.clearCache()
+    await checkMcpStatus()
   }
   
   /**
@@ -39,6 +114,16 @@
   function handleConnectWallet() {
     uiActions.openWalletModal()
   }
+  
+  // Check MCP status on component mount
+  onMount(() => {
+    checkMcpStatus()
+    
+    // Check status every 30 seconds
+    const interval = setInterval(checkMcpStatus, 30000)
+    
+    return () => clearInterval(interval)
+  })
 </script>
 
 <!-- 
@@ -90,16 +175,19 @@
         </span>
         
         <!-- 
-          MCP Toggle Button
-          - Dynamic styling based on enabled state
-          - Green background when enabled, red when disabled
+          MCP Status Button
+          - Dynamic styling based on actual server status
+          - Color coding: Green (running), Orange (not running), Red (not configured/error), Gray (not installed)
           - Small size with monospace font for technical appearance
+          - Click to refresh status
         -->
         <button 
-          on:click={toggleMCP} 
-          class="{mcpEnabled ? 'bg-green-500' : 'bg-red-500'} text-white border-2 border-black rounded px-2 py-0.5 font-mono font-bold cursor-pointer text-xs"
+          on:click={refreshMcpStatus}
+          disabled={isChecking}
+          class="{getMcpStatusClass()} text-white border-2 border-black rounded px-2 py-0.5 font-mono font-bold cursor-pointer text-xs disabled:cursor-not-allowed hover:opacity-80 transition-opacity"
+          title="{mcpStatusMessage}"
         >
-          {mcpEnabled ? 'Enabled' : 'Disabled'}
+          {getMcpStatusText()}
         </button>
       </div>
     </div>

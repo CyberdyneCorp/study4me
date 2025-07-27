@@ -57,6 +57,11 @@ RAG_DIR = os.getenv("RAG_DIR", "./rag_storage")
 GRAPHML_FILENAME = os.getenv("GRAPHML_FILENAME", "graph_chunk_entity_relation.graphml")
 GRAPHML_PATH = os.path.join(RAG_DIR, GRAPHML_FILENAME)
 
+# MCP Server Configuration
+MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://127.0.0.1:8001/mcp/")
+MCP_SERVER_HOST = os.getenv("MCP_SERVER_HOST", "127.0.0.1")
+MCP_SERVER_PORT = int(os.getenv("MCP_SERVER_PORT", "8001"))
+
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(RAG_DIR, exist_ok=True)
 
@@ -452,6 +457,144 @@ def get_websocket_status():
         "connections_active": len(WEBSOCKET_CONNECTIONS) > 0,
         "timestamp": time.time()
     }
+
+@app.get("/mcp/status", tags=["MCP"])
+async def get_mcp_status():
+    """Get MCP server status and configuration."""
+    try:
+        # Check if MCP server file exists
+        mcp_server_path = os.path.join(os.path.dirname(__file__), "mcp_server.py")
+        mcp_server_exists = os.path.exists(mcp_server_path)
+        
+        # Check if MCP config exists
+        mcp_config_path = os.path.join(os.path.dirname(__file__), "mcp_config.json")
+        mcp_config_exists = os.path.exists(mcp_config_path)
+        
+        # Check if required environment variables are set
+        openai_key_set = bool(os.getenv("OPENAI_API_KEY"))
+        db_path_set = bool(os.getenv("DB_PATH"))
+        rag_dir_set = bool(os.getenv("RAG_DIR"))
+        
+        # Try to read MCP config and determine server URL
+        mcp_config = None
+        mcp_server_url = None
+        url_source = "environment"  # Track where URL comes from
+        
+        if mcp_config_exists:
+            try:
+                with open(mcp_config_path, 'r') as f:
+                    mcp_config = json.load(f)
+                    # Extract MCP server URL if it exists
+                    study4me_config = mcp_config.get("mcpServers", {}).get("study4me", {})
+                    mcp_server_url = study4me_config.get("url")
+                    if mcp_server_url:
+                        url_source = "mcp_config.json"
+            except Exception:
+                pass
+        
+        # Try to read HTTP config as fallback
+        mcp_http_config_path = os.path.join(os.path.dirname(__file__), "mcp_config_http.json")
+        if not mcp_server_url and os.path.exists(mcp_http_config_path):
+            try:
+                with open(mcp_http_config_path, 'r') as f:
+                    http_config = json.load(f)
+                    study4me_config = http_config.get("mcpServers", {}).get("study4me", {})
+                    mcp_server_url = study4me_config.get("url")
+                    if mcp_server_url:
+                        url_source = "mcp_config_http.json"
+            except Exception:
+                pass
+        
+        # Use configured MCP server URL from environment if not found in config files
+        if not mcp_server_url:
+            mcp_server_url = MCP_SERVER_URL
+            url_source = f"environment (MCP_SERVER_URL={MCP_SERVER_URL})"
+        
+        # Test actual MCP server connectivity
+        # Note: MCP servers typically return HTTP 406 "Not Acceptable" for GET requests
+        # because they expect MCP protocol communication, not plain HTTP requests
+        server_running = False
+        server_error = None
+        
+        if mcp_server_exists and openai_key_set:
+            try:
+                import aiohttp
+                timeout = aiohttp.ClientTimeout(total=3.0)  # 3 second timeout
+                
+                async with aiohttp.ClientSession(timeout=timeout) as session:
+                    # Try to ping the MCP server
+                    async with session.get(mcp_server_url) as response:
+                        # HTTP 200 means server responded normally
+                        # HTTP 406 "Not Acceptable" means MCP server is running but rejecting GET requests (expected behavior)
+                        # HTTP 405 "Method Not Allowed" also indicates server is running
+                        if response.status in [200, 405, 406]:
+                            server_running = True
+                            if response.status == 406:
+                                server_error = None  # 406 is expected for MCP servers
+                            elif response.status == 405:
+                                server_error = None  # 405 is also acceptable
+                        else:
+                            server_error = f"HTTP {response.status}"
+            except aiohttp.ClientConnectorError:
+                server_error = "Connection refused - server not running"
+            except asyncio.TimeoutError:
+                server_error = "Connection timeout"
+            except ImportError:
+                # Fallback to requests if aiohttp not available
+                try:
+                    import requests
+                    response = requests.get(mcp_server_url, timeout=3)
+                    # HTTP 200, 405, or 406 all indicate server is running
+                    if response.status_code in [200, 405, 406]:
+                        server_running = True
+                        if response.status_code in [405, 406]:
+                            server_error = None  # These are expected for MCP servers
+                    else:
+                        server_error = f"HTTP {response.status_code}"
+                except requests.exceptions.ConnectionError:
+                    server_error = "Connection refused - server not running"
+                except requests.exceptions.Timeout:
+                    server_error = "Connection timeout"
+                except Exception as e:
+                    server_error = f"Request failed: {str(e)}"
+            except Exception as e:
+                server_error = f"Connection test failed: {str(e)}"
+        
+        # Determine overall status
+        if not mcp_server_exists:
+            overall_status = "not_installed"
+        elif not openai_key_set:
+            overall_status = "not_configured"
+        elif server_running:
+            overall_status = "running"
+        elif server_error:
+            overall_status = "installed_not_running"
+        else:
+            overall_status = "unknown"
+        
+        return {
+            "status": overall_status,
+            "server_file_exists": mcp_server_exists,
+            "config_file_exists": mcp_config_exists,
+            "server_running": server_running,
+            "server_url": mcp_server_url,
+            "server_url_source": url_source,
+            "server_error": server_error,
+            "environment": {
+                "openai_api_key_set": openai_key_set,
+                "db_path_set": db_path_set,
+                "rag_dir_set": rag_dir_set
+            },
+            "config": mcp_config,
+            "timestamp": time.time()
+        }
+    except Exception as e:
+        logger.error(f"Error checking MCP status: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+            "timestamp": time.time()
+        }
 
 @app.get("/files/{study_topic_id}/{filename}", tags=["File Management"])
 async def download_file(study_topic_id: str, filename: str):
