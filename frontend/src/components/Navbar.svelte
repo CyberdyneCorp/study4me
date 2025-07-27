@@ -142,16 +142,43 @@
   /**
    * Get network name from chain ID
    */
-  function getNetworkName(chainId: number | undefined): string {
-    switch (chainId) {
+  function getNetworkName(chainId: number | string | undefined): string {
+    // Debug logging
+    console.log('getNetworkName called with chainId:', chainId, 'type:', typeof chainId)
+    
+    if (!chainId) return 'Chain undefined'
+    
+    // Convert string chain IDs to numbers
+    let numericChainId: number
+    if (typeof chainId === 'string') {
+      // Handle EIP-155 format like "eip155:1" or just "1"
+      const match = chainId.match(/(\d+)$/)
+      numericChainId = match ? parseInt(match[1], 10) : 0
+      console.log('Converted string chainId:', chainId, 'to numeric:', numericChainId)
+    } else {
+      numericChainId = chainId
+    }
+    
+    switch (numericChainId) {
       case 1: return 'Ethereum'
       case 137: return 'Polygon'
       case 42161: return 'Arbitrum'
       case 8453: return 'Base'
-      default: return `Chain ${chainId}`
+      default: return `Chain ${numericChainId}`
     }
   }
   
+  // Debug wallet state changes
+  $: {
+    console.log('Wallet state changed:', {
+      isConnected: $isWalletConnected,
+      address: $walletAddress,
+      chainId: $walletChainId,
+      chainIdType: typeof $walletChainId,
+      appKitState: $appKitState
+    })
+  }
+
   // Check MCP status on component mount
   onMount(() => {
     checkMcpStatus()

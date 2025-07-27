@@ -297,6 +297,10 @@ class AppKitService {
 
     // Listen to modal state changes
     this.appKit.subscribeState((state) => {
+      console.log('AppKit full state object:', state)
+      console.log('selectedNetworkId:', state.selectedNetworkId, 'type:', typeof state.selectedNetworkId)
+      console.log('selectedAccount:', state.selectedAccount)
+      
       const walletInfo: WalletInfo = {
         isConnected: !!state.selectedNetworkId,
         address: state.selectedAccount?.address,
@@ -309,13 +313,17 @@ class AppKitService {
       console.log('AppKit state changed:', {
         isConnected: walletInfo.isConnected,
         address: walletInfo.address,
-        chainId: walletInfo.chainId
+        chainId: walletInfo.chainId,
+        chainIdType: typeof walletInfo.chainId
       })
     })
 
     // Listen to account changes
     this.appKit.subscribeAccount((account) => {
-      console.log('Account changed:', account)
+      console.log('Account changed full object:', account)
+      console.log('Account chainId:', account.chainId, 'type:', typeof account.chainId)
+      console.log('Account address:', account.address)
+      console.log('Account isConnected:', account.isConnected)
       
       if (account.isConnected) {
         const walletInfo: WalletInfo = {
@@ -324,6 +332,7 @@ class AppKitService {
           chainId: account.chainId,
           balance: account.balance
         }
+        console.log('Setting wallet info from account:', walletInfo)
         appKitActions.setWalletInfo(walletInfo)
       } else {
         appKitActions.setDisconnected()
@@ -332,7 +341,7 @@ class AppKitService {
 
     // Listen to chain changes
     this.appKit.subscribeChainId((chainId) => {
-      console.log('Chain changed:', chainId)
+      console.log('Chain changed:', chainId, 'type:', typeof chainId)
       appKitActions.setChainId(chainId)
     })
   }
