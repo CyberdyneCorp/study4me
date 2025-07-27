@@ -301,10 +301,21 @@ class AppKitService {
       console.log('selectedNetworkId:', state.selectedNetworkId, 'type:', typeof state.selectedNetworkId)
       console.log('selectedAccount:', state.selectedAccount)
       
+      // Extract chain ID from caipAddress if selectedNetworkId is undefined
+      let chainId = state.selectedNetworkId
+      if (!chainId && state.selectedAccount?.caipAddress) {
+        // Parse CAIP-10 format: "eip155:42161:0x..."
+        const match = state.selectedAccount.caipAddress.match(/^eip155:(\d+):/)
+        if (match) {
+          chainId = parseInt(match[1], 10)
+          console.log('Extracted chainId from state caipAddress:', chainId)
+        }
+      }
+      
       const walletInfo: WalletInfo = {
-        isConnected: !!state.selectedNetworkId,
+        isConnected: !!chainId || !!state.selectedAccount?.address,
         address: state.selectedAccount?.address,
-        chainId: state.selectedNetworkId,
+        chainId: chainId,
         balance: state.selectedAccount?.balance
       }
 
@@ -323,13 +334,25 @@ class AppKitService {
       console.log('Account changed full object:', account)
       console.log('Account chainId:', account.chainId, 'type:', typeof account.chainId)
       console.log('Account address:', account.address)
+      console.log('Account caipAddress:', account.caipAddress)
       console.log('Account isConnected:', account.isConnected)
       
       if (account.isConnected) {
+        // Extract chain ID from caipAddress if chainId is undefined
+        let chainId = account.chainId
+        if (!chainId && account.caipAddress) {
+          // Parse CAIP-10 format: "eip155:42161:0x..."
+          const match = account.caipAddress.match(/^eip155:(\d+):/)
+          if (match) {
+            chainId = parseInt(match[1], 10)
+            console.log('Extracted chainId from caipAddress:', chainId)
+          }
+        }
+        
         const walletInfo: WalletInfo = {
           isConnected: true,
           address: account.address,
-          chainId: account.chainId,
+          chainId: chainId,
           balance: account.balance
         }
         console.log('Setting wallet info from account:', walletInfo)
