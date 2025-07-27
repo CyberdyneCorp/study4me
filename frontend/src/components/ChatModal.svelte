@@ -1401,7 +1401,7 @@
           <div class="w-full max-w-full overflow-hidden">
             <div 
               id="mindmap-container" 
-              class="min-h-[400px] border-2 border-gray-300 rounded bg-white p-4 flex items-center justify-center relative overflow-hidden cursor-grab select-none"
+              class="min-h-[400px] bg-white p-4 flex items-center justify-center relative overflow-hidden cursor-grab select-none"
               class:cursor-grabbing={isDragging}
               role="img"
               aria-label="Interactive mindmap visualization - scroll to zoom, drag to pan"
